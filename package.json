@@ -1,0 +1,11 @@
+{
+  "name": "embarcai",
+  "private": true,
+  "scripts": {
+    "mobile:start": "cd mobile && npm run start",
+    "mobile:android": "cd mobile && npm run android",
+    "mobile:ios": "cd mobile && npm run ios",
+    "mobile:web": "cd mobile && npm run web",
+    "mobile:lint": "cd mobile && npm run lint"
+  }
+}

@@ -1,0 +1,30 @@
+# Dependencies and env
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Logs and OS
+*.log
+.DS_Store
+
+# Build and tests
+dist/
+coverage/
+*.tsbuildinfo
+
+# Expo
+.expo/
+.expo-shared/
+expo-env.d.ts
+web-build/
+app-example/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
