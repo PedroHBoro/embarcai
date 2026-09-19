@@ -6,6 +6,13 @@
     "mobile:android": "cd mobile && npm run android",
     "mobile:ios": "cd mobile && npm run ios",
     "mobile:web": "cd mobile && npm run web",
-    "mobile:lint": "cd mobile && npm run lint"
+    "mobile:lint": "cd mobile && npm run lint",
+    "api:dev": "cd api && npm run dev",
+    "api:build": "cd api && npm run build",
+    "api:start": "cd api && npm run start",
+    "db:up": "cd api && npm run db:up",
+    "db:down": "cd api && npm run db:down",
+    "db:migrate": "cd api && npm run db:migrate",
+    "db:generate": "cd api && npm run db:generate"
   }
 }

@@ -8,10 +8,11 @@ node_modules/
 *.log
 .DS_Store
 
-# Build and tests
+# Build, generated, and tests
 dist/
 coverage/
 *.tsbuildinfo
+src/generated/prisma/
 
 # Expo
 .expo/
