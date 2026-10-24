@@ -13,6 +13,7 @@ dist/
 coverage/
 *.tsbuildinfo
 src/generated/prisma/
+mobile/.gitignore
 
 # Expo
 .expo/
