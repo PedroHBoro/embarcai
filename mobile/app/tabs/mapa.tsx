@@ -1,46 +1,120 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import ListaFiltrada from "../../components/ListaFiltrada";
 
-const onibus = [
-  {
-    id: "101",
-    nome: "101 - Centro",
-    rotas: ["Centro", "Terminal", "Universidade"],
-  },
-  {
-    id: "202",
-    nome: "202 - Zona Norte",
-    rotas: ["Zona Norte", "Zona Sul"],
-  },
-  {
-    id: "303",
-    nome: "303 - Terminal",
-    rotas: ["Terminal", "Aeroporto"],
-  },
-];
+import { API_URL } from "../../constants/config";
+
+type Linha = {
+  id: number;
+  nome: string;
+};
+
+type Rota = {
+  id: number;
+  nome: string;
+};
+
+type Ponto = {
+  id: number;
+  nome: string;
+  latitude: number;
+  longitude: number;
+};
 
 export default function AbaMapa() {
-  const [onibusSelecionado, setOnibusSelecionado] = useState<
-    (typeof onibus)[number] | null
-  >(null);
+  const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [rotas, setRotas] = useState<Rota[]>([]);
+  const [pontos, setPontos] = useState<Ponto[]>([]);
 
-  const [rotaSelecionada, setRotaSelecionada] = useState<string | null>(
-    null
-  );
+  const [linhaSelecionada, setLinhaSelecionada] =
+    useState<Linha | null>(null);
+  const [rotaSelecionada, setRotaSelecionada] =
+    useState<Rota | null>(null);
+  const [pontoSelecionado, setPontoSelecionado] =
+    useState<Ponto | null>(null);
 
-  const [pontoSelecionado, setPontoSelecionado] = useState<string | null>(
-    null
-  );
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  function selecionarOnibus(nome: string) {
-    const bus = onibus.find((item) => item.nome === nome);
+  async function buscar<T>(endpoint: string): Promise<T> {
+    const resposta = await fetch(`${API_URL}${endpoint}`);
 
-    if (bus) {
-      setOnibusSelecionado(bus);
-      setRotaSelecionada(null);
-      setPontoSelecionado(null);
+    if (!resposta.ok) {
+      throw new Error(`Erro HTTP ${resposta.status} em ${endpoint}`);
+    }
+
+    return resposta.json() as Promise<T>;
+  }
+
+  // Carrega as linhas quando a tela é aberta.
+  useEffect(() => {
+    async function carregarLinhas() {
+      setCarregando(true);
+      setErro(null);
+
+      try {
+        const dados = await buscar<Linha[]>("/linhas");
+        setLinhas(dados);
+      } catch (e) {
+        setErro(
+          e instanceof Error ? e.message : "Não foi possível carregar as linhas."
+        );
+      } finally {
+        setCarregando(false);
+      }
+    }
+
+    carregarLinhas();
+  }, []);
+
+  async function selecionarLinha(nome: string) {
+    const linha = linhas.find((item) => item.nome === nome);
+    if (!linha) return;
+
+    setLinhaSelecionada(linha);
+    setRotaSelecionada(null);
+    setPontoSelecionado(null);
+    setRotas([]);
+    setPontos([]);
+    setErro(null);
+    setCarregando(true);
+
+    try {
+      const dados = await buscar<Rota[]>(
+        `/linhas/${linha.id}/rotas`
+      );
+      setRotas(dados);
+    } catch (e) {
+      setErro(
+        e instanceof Error ? e.message : "Não foi possível carregar as rotas."
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function selecionarRota(nome: string) {
+    const rota = rotas.find((item) => item.nome === nome);
+    if (!rota) return;
+
+    setRotaSelecionada(rota);
+    setPontoSelecionado(null);
+    setPontos([]);
+    setErro(null);
+    setCarregando(true);
+
+    try {
+      const dados = await buscar<Ponto[]>(
+        `/rotas/${rota.id}/pontos`
+      );
+      setPontos(dados);
+    } catch (e) {
+      setErro(
+        e instanceof Error ? e.message : "Não foi possível carregar os pontos."
+      );
+    } finally {
+      setCarregando(false);
     }
   }
 
@@ -50,79 +124,85 @@ export default function AbaMapa() {
 
       <View style={styles.seletores}>
         <View style={styles.seletor}>
-          <Text style={styles.label}>Ônibus</Text>
-
+          <Text style={styles.label}>Linha</Text>
           <ListaFiltrada
-            titulo="um ônibus"
-            opcoes={onibus.map((bus) => bus.nome)}
-            selecionado={onibusSelecionado?.nome ?? null}
-            onSelecionar={selecionarOnibus}
+            titulo="uma linha"
+            opcoes={linhas.map((item) => item.nome)}
+            selecionado={linhaSelecionada?.nome ?? null}
+            onSelecionar={selecionarLinha}
           />
         </View>
 
         <View
           style={[
             styles.seletor,
-            !onibusSelecionado && styles.desabilitado,
+            !linhaSelecionada && styles.desabilitado,
           ]}
-          pointerEvents={onibusSelecionado ? "auto" : "none"}
+          pointerEvents={linhaSelecionada ? "auto" : "none"}
         >
           <Text style={styles.label}>Rota</Text>
-
           <ListaFiltrada
             titulo="uma rota"
-            opcoes={onibusSelecionado?.rotas ?? []}
-            selecionado={rotaSelecionada}
-            onSelecionar={(rota) => {
-              setRotaSelecionada(rota);
-              setPontoSelecionado(null);
-            }}
+            opcoes={rotas.map((item) => item.nome)}
+            selecionado={rotaSelecionada?.nome ?? null}
+            onSelecionar={selecionarRota}
           />
         </View>
 
         <View
           style={[
             styles.seletor,
-            (!onibusSelecionado || !rotaSelecionada) &&
-              styles.desabilitado,
+            !rotaSelecionada && styles.desabilitado,
           ]}
-          pointerEvents={
-            onibusSelecionado && rotaSelecionada ? "auto" : "none"
-          }
+          pointerEvents={rotaSelecionada ? "auto" : "none"}
         >
           <Text style={styles.label}>Ponto</Text>
-
           <ListaFiltrada
             titulo="um ponto"
-            opcoes={
-              onibusSelecionado && rotaSelecionada
-                ? ["Ponto inicial", "Ponto intermediário", "Ponto final"]
-                : []
-            }
-            selecionado={pontoSelecionado}
-            onSelecionar={setPontoSelecionado}
+            opcoes={pontos.map((item) => item.nome)}
+            selecionado={pontoSelecionado?.nome ?? null}
+            onSelecionar={(nome) => {
+              setPontoSelecionado(
+                pontos.find((item) => item.nome === nome) ?? null
+              );
+            }}
           />
         </View>
       </View>
 
-      {!onibusSelecionado && (
-        <Text style={styles.aviso}>
-          Selecione um ônibus para visualizar suas rotas.
-        </Text>
+      {carregando && (
+        <Text style={styles.aviso}>Carregando dados...</Text>
       )}
 
-      {onibusSelecionado && !rotaSelecionada && (
-        <Text style={styles.aviso}>
-          Agora selecione uma rota.
-        </Text>
+      {erro && <Text style={styles.erro}>{erro}</Text>}
+
+      {!carregando && !erro && linhas.length === 0 && (
+        <Text style={styles.aviso}>Nenhuma linha cadastrada.</Text>
       )}
 
-      {onibusSelecionado && rotaSelecionada && (
+      {linhaSelecionada && !rotaSelecionada && (
+        <Text style={styles.aviso}>Selecione uma rota.</Text>
+      )}
+
+      {linhaSelecionada && rotaSelecionada && (
         <View style={styles.mapa}>
           <Text style={styles.mapaTitulo}>Mapa</Text>
-          <Text>{onibusSelecionado.nome}</Text>
-          <Text>Rota: {rotaSelecionada}</Text>
-          {pontoSelecionado && <Text>Ponto: {pontoSelecionado}</Text>}
+          <Text>Linha: {linhaSelecionada.nome}</Text>
+          <Text>Rota: {rotaSelecionada.nome}</Text>
+
+          {pontoSelecionado && (
+            <>
+              <Text>Ponto: {pontoSelecionado.nome}</Text>
+              <Text>Latitude: {pontoSelecionado.latitude}</Text>
+              <Text>Longitude: {pontoSelecionado.longitude}</Text>
+            </>
+          )}
+
+          {pontos.length === 0 && !carregando && (
+            <Text style={styles.aviso}>
+              Esta rota ainda não possui pontos.
+            </Text>
+          )}
         </View>
       )}
     </View>
@@ -160,6 +240,10 @@ const styles = StyleSheet.create({
   },
   aviso: {
     color: "#777",
+    marginTop: 12,
+  },
+  erro: {
+    color: "#c00",
     marginTop: 12,
   },
   mapa: {

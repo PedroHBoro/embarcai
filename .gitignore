@@ -12,7 +12,7 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
-src/generated/prisma/
+api/src/generated/prisma
 mobile/.gitignore
 
 # Expo

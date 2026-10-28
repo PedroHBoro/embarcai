@@ -6,3 +6,26 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model Linha {
+  id    Int    @id @default(autoincrement())
+  nome  String
+  rotas Rota[]
+}
+
+model Rota {
+  id      Int     @id @default(autoincrement())
+  nome    String
+  linhaId Int
+  linha   Linha   @relation(fields: [linhaId], references: [id])
+  pontos  Ponto[]
+}
+
+model Ponto {
+  id        Int    @id @default(autoincrement())
+  nome      String
+  latitude  Float
+  longitude Float
+  rotaId    Int
+  rota      Rota   @relation(fields: [rotaId], references: [id])
+}
