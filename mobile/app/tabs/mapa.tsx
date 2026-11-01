@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { WebView } from "react-native-webview";
 import ListaFiltrada from "../../components/ListaFiltrada";
 
 import { API_URL } from "../../constants/config";
@@ -184,25 +185,32 @@ export default function AbaMapa() {
         <Text style={styles.aviso}>Selecione uma rota.</Text>
       )}
 
-      {linhaSelecionada && rotaSelecionada && (
+      {linhaSelecionada && rotaSelecionada && pontos.length > 0 && (
         <View style={styles.mapa}>
-          <Text style={styles.mapaTitulo}>Mapa</Text>
-          <Text>Linha: {linhaSelecionada.nome}</Text>
-          <Text>Rota: {rotaSelecionada.nome}</Text>
-
-          {pontoSelecionado && (
-            <>
-              <Text>Ponto: {pontoSelecionado.nome}</Text>
-              <Text>Latitude: {pontoSelecionado.latitude}</Text>
-              <Text>Longitude: {pontoSelecionado.longitude}</Text>
-            </>
-          )}
-
-          {pontos.length === 0 && !carregando && (
-            <Text style={styles.aviso}>
-              Esta rota ainda não possui pontos.
-            </Text>
-          )}
+          <WebView
+            key={pontoSelecionado?.id ?? pontos[0].id}
+            source={{
+              uri: `https://www.openstreetmap.org/export/embed.html?bbox=${
+                pontoSelecionado
+                  ? `${pontoSelecionado.longitude - 0.005},${pontoSelecionado.latitude - 0.005},${pontoSelecionado.longitude + 0.005},${pontoSelecionado.latitude + 0.005}`
+                  : `${pontos[0].longitude - 0.005},${pontos[0].latitude - 0.005},${pontos[0].longitude + 0.005},${pontos[0].latitude + 0.005}`
+              }&layer=mapnik&marker=${
+                pontoSelecionado
+                  ? `${pontoSelecionado.latitude},${pontoSelecionado.longitude}`
+                  : `${pontos[0].latitude},${pontos[0].longitude}`
+              }`,
+            }}
+            style={{
+              width: "100%",
+              height: 400,
+              flex: 1,
+            }}
+            javaScriptEnabled
+            domStorageEnabled
+            onError={(event) =>
+              console.log("Erro no mapa:", event.nativeEvent)
+            }
+          />
         </View>
       )}
     </View>
@@ -247,17 +255,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   mapa: {
-    flex: 1,
-    minHeight: 180,
-    marginTop: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f8fafc",
-  },
+  flex: 1,
+  minHeight: 400,
+  marginTop: 24,
+  borderWidth: 1,
+  borderColor: "#ccc",
+  borderRadius: 12,
+  overflow: "hidden",
+  backgroundColor: "#f8fafc",
+},
   mapaTitulo: {
     fontSize: 20,
     fontWeight: "bold",
