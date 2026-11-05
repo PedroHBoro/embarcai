@@ -30,6 +30,7 @@ export default function RootLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: colors.background },
         tabBarLabelPosition: "below-icon",
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: colors.text,
@@ -56,7 +57,7 @@ export default function RootLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused}>
               <MaterialCommunityIcons
-                name="map-marker-outline"
+                name={focused ? "map-marker" : "map-marker-outline"}
                 size={24}
                 color={color as string}
               />
@@ -88,7 +89,7 @@ export default function RootLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused}>
               <MaterialCommunityIcons
-                name="account-outline"
+                name={focused ? "account" : "account-outline"}
                 size={24}
                 color={color as string}
               />
@@ -104,7 +105,7 @@ export default function RootLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused}>
               <MaterialCommunityIcons
-                name="star-circle-outline"
+                name={focused ? "star-circle" : "star-circle-outline"}
                 size={24}
                 color={color as string}
               />
@@ -112,7 +113,6 @@ export default function RootLayout() {
           ),
         }}
       />
-
     </Tabs>
   );
 }

@@ -1,8 +1,9 @@
-
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, useColorScheme } from "react-native";
 import { WebView } from "react-native-webview";
 import ListaFiltrada from "../../components/ListaFiltrada";
+import { Colors } from "@/styles/tab";
+import { createMapaStyles } from "@/styles/mapa";
 
 import { API_URL } from "../../constants/config";
 
@@ -24,6 +25,10 @@ type Ponto = {
 };
 
 export default function AbaMapa() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === "dark" ? "dark" : "light"];
+  const styles = createMapaStyles(colors);
+
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [rotas, setRotas] = useState<Rota[]>([]);
   const [pontos, setPontos] = useState<Ponto[]>([]);
@@ -216,57 +221,3 @@ export default function AbaMapa() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 40,
-    backgroundColor: "#fff",
-  },
-  titulo: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 24,
-  },
-  seletores: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  seletor: {
-    flex: 1,
-    minWidth: 0,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  desabilitado: {
-    opacity: 0.4,
-  },
-  aviso: {
-    color: "#777",
-    marginTop: 12,
-  },
-  erro: {
-    color: "#c00",
-    marginTop: 12,
-  },
-  mapa: {
-  flex: 1,
-  minHeight: 400,
-  marginTop: 24,
-  borderWidth: 1,
-  borderColor: "#ccc",
-  borderRadius: 12,
-  overflow: "hidden",
-  backgroundColor: "#f8fafc",
-},
-  mapaTitulo: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 12,
-  },
-});
