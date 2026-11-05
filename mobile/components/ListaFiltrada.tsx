@@ -96,7 +96,7 @@ export default function ListaFiltrada({
               style={styles.fechar}
               onPress={() => setVisivel(false)}
             >
-              <Text style={styles.texto}>Fechar</Text>
+              <Text style={styles.fecharTexto}>Fechar</Text>
             </Pressable>
           </View>
         </View>
