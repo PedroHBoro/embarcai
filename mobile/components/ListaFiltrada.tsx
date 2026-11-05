@@ -1,4 +1,3 @@
-
 import { useMemo, useState } from "react";
 import {
   Modal,
@@ -7,8 +6,10 @@ import {
   TextInput,
   Pressable,
   FlatList,
-  StyleSheet,
+  useColorScheme,
 } from "react-native";
+import { Colors } from "@/styles/tab";
+import { createListaFiltradaStyles } from "@/styles/listaFiltrada";
 
 type Props = {
   titulo: string;
@@ -23,6 +24,10 @@ export default function ListaFiltrada({
   selecionado,
   onSelecionar,
 }: Props) {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === "dark" ? "dark" : "light"];
+  const styles = createListaFiltradaStyles(colors);
+
   const [visivel, setVisivel] = useState(false);
   const [filtro, setFiltro] = useState("");
 
@@ -46,7 +51,7 @@ export default function ListaFiltrada({
         style={styles.botao}
         onPress={() => setVisivel(true)}
       >
-        <Text>
+        <Text style={styles.texto}>
           {selecionado ?? `Selecionar ${titulo}`}
         </Text>
       </Pressable>
@@ -64,6 +69,7 @@ export default function ListaFiltrada({
             <TextInput
               style={styles.input}
               placeholder="Pesquisar..."
+              placeholderTextColor={colors.textSecondary}
               value={filtro}
               onChangeText={setFiltro}
               autoCapitalize="none"
@@ -81,7 +87,7 @@ export default function ListaFiltrada({
                   style={styles.opcao}
                   onPress={() => selecionar(item)}
                 >
-                  <Text>{item}</Text>
+                  <Text style={styles.texto}>{item}</Text>
                 </Pressable>
               )}
             />
@@ -90,7 +96,7 @@ export default function ListaFiltrada({
               style={styles.fechar}
               onPress={() => setVisivel(false)}
             >
-              <Text>Fechar</Text>
+              <Text style={styles.texto}>Fechar</Text>
             </Pressable>
           </View>
         </View>
@@ -98,51 +104,3 @@ export default function ListaFiltrada({
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  botao: {
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  fundo: {
-    flex: 1,
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.4)",
-    padding: 20,
-  },
-  modal: {
-    maxHeight: "80%",
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-  },
-  titulo: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-  },
-  opcao: {
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  vazio: {
-    padding: 14,
-    color: "#777",
-  },
-  fechar: {
-    alignItems: "center",
-    padding: 12,
-    marginTop: 8,
-  },
-});
