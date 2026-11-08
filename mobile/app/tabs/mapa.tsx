@@ -5,7 +5,7 @@ import ListaFiltrada from "../../components/ListaFiltrada";
 import { Colors } from "@/styles/tab";
 import { createMapaStyles } from "@/styles/mapa";
 
-import { API_URL } from "../../constants/config";
+import { api } from "../../constants/api";
 
 type Linha = {
   id: number;
@@ -44,7 +44,7 @@ export default function AbaMapa() {
   const [erro, setErro] = useState<string | null>(null);
 
   async function buscar<T>(endpoint: string): Promise<T> {
-    const resposta = await fetch(`${API_URL}${endpoint}`);
+    const resposta = await api.get(endpoint);
 
     if (!resposta.ok) {
       throw new Error(`Erro HTTP ${resposta.status} em ${endpoint}`);
