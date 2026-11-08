@@ -29,6 +29,15 @@ model Ponto {
   rotaId    Int
   rota      Rota   @relation(fields: [rotaId], references: [id])
 }
+
+model Usuario {
+  id       Int    @id @default(autoincrement())
+  nome     String
+  cpf      String @unique @db.Char(11)
+  email    String @unique
+  telefone String @db.Char(11)
+  senha    String @db.Char(60)
+}
 /*
 enum TipoPasse {
   NORMAL
