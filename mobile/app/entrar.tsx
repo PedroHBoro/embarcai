@@ -12,7 +12,7 @@ import { useRouter } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Colors } from "@/styles/tab";
 import { createCartoesStyles } from "@/styles/cartoes";
-import { API_URL } from "@/constants/config";
+import { api } from "@/constants/api";
 import { gravarSessao } from "@/constants/sessao";
 
 type Modo = "entrar" | "cadastro";
@@ -89,11 +89,6 @@ export default function EntrarScreen() {
       }
     }
 
-    if (!API_URL) {
-      setErro("API não configurada.");
-      return;
-    }
-
     const caminho = modo === "entrar" ? "/auth/login" : "/auth/cadastro";
     const corpo =
       modo === "entrar"
@@ -108,11 +103,7 @@ export default function EntrarScreen() {
 
     setEnviando(true);
     try {
-      const resposta = await fetch(`${API_URL}${caminho}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(corpo),
-      });
+      const resposta = await api.post(caminho, corpo);
       const dados = await resposta.json().catch(() => null);
 
       if (!resposta.ok) {
@@ -122,8 +113,12 @@ export default function EntrarScreen() {
 
       await gravarSessao({ token: dados.token, usuario: dados.usuario });
       router.replace("/tabs/viagens");
-    } catch {
-      setErro("Não foi possível conectar à API.");
+    } catch (error) {
+      setErro(
+        error instanceof Error && error.message === "API não configurada."
+          ? error.message
+          : "Não foi possível conectar à API."
+      );
     } finally {
       setEnviando(false);
     }

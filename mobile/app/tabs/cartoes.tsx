@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Colors } from "@/styles/tab";
 import { createCartoesStyles } from "@/styles/cartoes";
 import { API_URL } from "@/constants/config";
+import { api } from "@/constants/api";
 
 export type TipoPasse = "NORMAL" | "ESTUDANTE";
 
@@ -78,7 +79,7 @@ export default function CartoesScreen() {
       setErro(null);
 
       try {
-        const resposta = await fetch(`${API_URL}/cartoes`);
+        const resposta = await api.get("/cartoes");
         if (!resposta.ok) {
           throw new Error(`Erro HTTP ${resposta.status}`);
         }
@@ -170,13 +171,9 @@ export default function CartoesScreen() {
     if (cartaoEditando) {
       try {
         if (API_URL) {
-          const resposta = await fetch(
-            `${API_URL}/cartoes/${cartaoEditando.id}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            }
+          const resposta = await api.put(
+            `/cartoes/${cartaoEditando.id}`,
+            payload
           );
           if (resposta.status === 409 || resposta.status === 400) {
             const body = await resposta.json();
@@ -205,11 +202,7 @@ export default function CartoesScreen() {
     } else {
       try {
         if (API_URL) {
-          const resposta = await fetch(`${API_URL}/cartoes`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...payload, saldo: 0 }),
-          });
+          const resposta = await api.post("/cartoes", { ...payload, saldo: 0 });
           if (resposta.status === 409 || resposta.status === 400) {
             const body = await resposta.json();
             setErroFormulario(body.erro ?? "Erro ao validar dados do cartão.");
@@ -244,7 +237,7 @@ export default function CartoesScreen() {
 
     try {
       if (API_URL) {
-        await fetch(`${API_URL}/cartoes/${id}`, { method: "DELETE" });
+        await api.delete(`/cartoes/${id}`);
       }
     } catch {
  
@@ -264,7 +257,7 @@ export default function CartoesScreen() {
     setConsultandoSaldo(true);
 
     try {
-      const resposta = await fetch(`${API_URL}/cartoes/${cartao.id}/saldo`);
+      const resposta = await api.get(`/cartoes/${cartao.id}/saldo`);
       if (resposta.ok) {
         const dadosSaldo = (await resposta.json()) as Pick<
           Cartao,
