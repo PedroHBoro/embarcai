@@ -31,14 +31,15 @@ model Ponto {
 }
 
 model Usuario {
-  id       Int    @id @default(autoincrement())
+  id       Int      @id @default(autoincrement())
   nome     String
-  cpf      String @unique @db.Char(11)
-  email    String @unique
-  telefone String @db.Char(11)
-  senha    String @db.Char(60)
+  cpf      String   @unique @db.Char(11)
+  email    String   @unique
+  telefone String   @db.Char(11)
+  senha    String   @db.Char(60)
+  cartoes  Cartao[]
 }
-/*
+
 enum TipoPasse {
   NORMAL
   ESTUDANTE
@@ -50,8 +51,8 @@ model Cartao {
   numeroTccc            String    @unique
   saldo                 Float     @default(0)
   perfilId              Int?
+  perfil                Usuario?  @relation(fields: [perfilId], references: [id])
   tipoPasse             TipoPasse @default(NORMAL)
   instituicaoEnsino     String?
   comprovanteResidencia String?
 }
-*/
