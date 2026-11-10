@@ -30,17 +30,24 @@ model Ponto {
 }
 
 model Itinerario {
-  id      Int    @id @default(autoincrement())
+  id      Int     @id @default(autoincrement())
   rotaId  Int
-  rota    Rota   @relation(fields: [rotaId], references: [id], onDelete: Cascade)
+  rota    Rota    @relation(fields: [rotaId], references: [id], onDelete: Cascade)
   pontoId Int
-  ponto   Ponto  @relation(fields: [pontoId], references: [id], onDelete: Cascade)
+  ponto   Ponto   @relation(fields: [pontoId], references: [id], onDelete: Cascade)
+  tipoDia TipoDia @default(DIA_UTIL)
   ordem   Int
   horario String
 
-  @@unique([rotaId, ordem])
-  @@index([rotaId])
+  @@unique([rotaId, tipoDia, ordem])
+  @@index([rotaId, tipoDia])
   @@index([pontoId])
+}
+
+enum TipoDia {
+  DIA_UTIL
+  SABADO
+  DOMINGO
 }
 
 model Usuario {

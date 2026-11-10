@@ -1,6 +1,8 @@
 import { Router } from "express";
 import prisma from "../../prisma.client";
 
+const TIPOS_DIA = ["DIA_UTIL", "SABADO", "DOMINGO"] as const;
+
 export const rotasRoutes = Router();
 
 rotasRoutes.get("/:rotaId/pontos", async (req, res) => {
@@ -16,7 +18,7 @@ rotasRoutes.get("/:rotaId/pontos", async (req, res) => {
       where: { id: rotaId },
       include: {
         itinerarios: {
-          orderBy: { ordem: "asc" },
+          orderBy: [{ tipoDia: "asc" }, { ordem: "asc" }],
           include: { ponto: true },
         },
       },
@@ -27,7 +29,10 @@ rotasRoutes.get("/:rotaId/pontos", async (req, res) => {
       return;
     }
 
-    res.json(rota.itinerarios.map(({ ponto }) => ponto));
+    const pontosUnicos = new Map(
+      rota.itinerarios.map(({ ponto }) => [ponto.id, ponto])
+    );
+    res.json([...pontosUnicos.values()]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ erro: "Erro ao buscar pontos." });
@@ -36,9 +41,15 @@ rotasRoutes.get("/:rotaId/pontos", async (req, res) => {
 
 rotasRoutes.get("/:rotaId/itinerario", async (req, res) => {
   const rotaId = Number(req.params.rotaId);
+  const tipoDia = req.query.tipoDia ?? "DIA_UTIL";
 
   if (!Number.isInteger(rotaId) || rotaId <= 0) {
     res.status(400).json({ erro: "ID da rota inválido." });
+    return;
+  }
+
+  if (typeof tipoDia !== "string" || !TIPOS_DIA.includes(tipoDia as (typeof TIPOS_DIA)[number])) {
+    res.status(400).json({ erro: "Tipo de dia inválido. Use DIA_UTIL, SABADO ou DOMINGO." });
     return;
   }
 
@@ -47,6 +58,7 @@ rotasRoutes.get("/:rotaId/itinerario", async (req, res) => {
       where: { id: rotaId },
       include: {
         itinerarios: {
+          where: { tipoDia: tipoDia as (typeof TIPOS_DIA)[number] },
           orderBy: { ordem: "asc" },
           include: { ponto: true },
         },
