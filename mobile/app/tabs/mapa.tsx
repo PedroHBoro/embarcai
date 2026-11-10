@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, useColorScheme } from "react-native";
+import { View, Text, useColorScheme, Pressable, Modal, ScrollView } from "react-native";
 import { WebView } from "react-native-webview";
 import ListaFiltrada from "../../components/ListaFiltrada";
 import { Colors } from "@/styles/tab";
@@ -24,6 +24,11 @@ type Ponto = {
   longitude: number;
 };
 
+type ItemItinerario = Ponto & {
+  ordem: number;
+  horario: string;
+};
+
 export default function AbaMapa() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === "dark" ? "dark" : "light"];
@@ -32,6 +37,8 @@ export default function AbaMapa() {
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [rotas, setRotas] = useState<Rota[]>([]);
   const [pontos, setPontos] = useState<Ponto[]>([]);
+  const [itinerario, setItinerario] = useState<ItemItinerario[]>([]);
+  const [itinerarioVisivel, setItinerarioVisivel] = useState(false);
 
   const [linhaSelecionada, setLinhaSelecionada] =
     useState<Linha | null>(null);
@@ -74,8 +81,8 @@ export default function AbaMapa() {
     carregarLinhas();
   }, []);
 
-  async function selecionarLinha(nome: string) {
-    const linha = linhas.find((item) => item.nome === nome);
+  async function selecionarLinha(linhaSelecionada: Linha) {
+    const linha = linhas.find((item) => item.id === linhaSelecionada.id);
     if (!linha) return;
 
     setLinhaSelecionada(linha);
@@ -83,6 +90,8 @@ export default function AbaMapa() {
     setPontoSelecionado(null);
     setRotas([]);
     setPontos([]);
+    setItinerario([]);
+    setItinerarioVisivel(false);
     setErro(null);
     setCarregando(true);
 
@@ -100,8 +109,8 @@ export default function AbaMapa() {
     }
   }
 
-  async function selecionarRota(nome: string) {
-    const rota = rotas.find((item) => item.nome === nome);
+  async function selecionarRota(rotaSelecionada: Rota) {
+    const rota = rotas.find((item) => item.id === rotaSelecionada.id);
     if (!rota) return;
 
     setRotaSelecionada(rota);
@@ -111,10 +120,12 @@ export default function AbaMapa() {
     setCarregando(true);
 
     try {
-      const dados = await buscar<Ponto[]>(
-        `/rotas/${rota.id}/pontos`
-      );
-      setPontos(dados);
+      const [dadosPontos, dadosItinerario] = await Promise.all([
+        buscar<Ponto[]>(`/rotas/${rota.id}/pontos`),
+        buscar<ItemItinerario[]>(`/rotas/${rota.id}/itinerario`),
+      ]);
+      setPontos(dadosPontos);
+      setItinerario(dadosItinerario);
     } catch (e) {
       setErro(
         e instanceof Error ? e.message : "Não foi possível carregar os pontos."
@@ -133,8 +144,8 @@ export default function AbaMapa() {
           <Text style={styles.label}>Linha</Text>
           <ListaFiltrada
             titulo="uma linha"
-            opcoes={linhas.map((item) => item.nome)}
-            selecionado={linhaSelecionada?.nome ?? null}
+            opcoes={linhas}
+            selecionado={linhaSelecionada}
             onSelecionar={selecionarLinha}
           />
         </View>
@@ -149,8 +160,8 @@ export default function AbaMapa() {
           <Text style={styles.label}>Rota</Text>
           <ListaFiltrada
             titulo="uma rota"
-            opcoes={rotas.map((item) => item.nome)}
-            selecionado={rotaSelecionada?.nome ?? null}
+            opcoes={rotas}
+            selecionado={rotaSelecionada}
             onSelecionar={selecionarRota}
           />
         </View>
@@ -165,11 +176,11 @@ export default function AbaMapa() {
           <Text style={styles.label}>Ponto</Text>
           <ListaFiltrada
             titulo="um ponto"
-            opcoes={pontos.map((item) => item.nome)}
-            selecionado={pontoSelecionado?.nome ?? null}
-            onSelecionar={(nome) => {
+            opcoes={pontos}
+            selecionado={pontoSelecionado}
+            onSelecionar={(ponto) => {
               setPontoSelecionado(
-                pontos.find((item) => item.nome === nome) ?? null
+                pontos.find((item) => item.id === ponto.id) ?? null
               );
             }}
           />
@@ -218,6 +229,62 @@ export default function AbaMapa() {
           />
         </View>
       )}
+
+      {linhaSelecionada && rotaSelecionada && (
+        <Pressable
+          style={styles.botaoItinerario}
+          onPress={() => setItinerarioVisivel(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
+        >
+          <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
+        </Pressable>
+      )}
+
+      <Modal
+        visible={itinerarioVisivel}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setItinerarioVisivel(false)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCartao}>
+            <Text style={styles.modalTitulo}>Itinerário</Text>
+            <Text style={styles.modalSubtitulo}>
+              {linhaSelecionada?.nome} · {rotaSelecionada?.nome}
+            </Text>
+
+            <View style={styles.tabelaCabecalho}>
+              <Text style={[styles.celula, styles.colunaOrdem]}>#</Text>
+              <Text style={[styles.celula, styles.colunaPonto]}>Ponto</Text>
+              <Text style={[styles.celula, styles.colunaHorario]}>Horário</Text>
+            </View>
+            <ScrollView style={styles.tabela}>
+              {itinerario.length > 0 ? itinerario.map((item) => (
+                <View key={`${item.ordem}-${item.id}`} style={styles.linhaTabela}>
+                  <Text style={[styles.celula, styles.colunaOrdem]}>{item.ordem}</Text>
+                  <Text style={[styles.celula, styles.colunaPonto]} numberOfLines={2}>
+                    {item.nome}
+                  </Text>
+                  <Text style={[styles.celula, styles.colunaHorario]}>{item.horario}</Text>
+                </View>
+              )) : (
+                <Text style={styles.tabelaVazia}>
+                  Nenhum horário cadastrado para esta rota.
+                </Text>
+              )}
+            </ScrollView>
+
+            <Pressable
+              style={styles.botaoFechar}
+              onPress={() => setItinerarioVisivel(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.botaoItinerarioTexto}>Fechar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
