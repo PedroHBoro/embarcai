@@ -29,6 +29,14 @@ type ItemItinerario = Ponto & {
   horario: string;
 };
 
+type TipoDia = "DIA_UTIL" | "SABADO" | "DOMINGO";
+
+const TIPOS_DIA: { valor: TipoDia; rotulo: string }[] = [
+  { valor: "DIA_UTIL", rotulo: "Dia útil" },
+  { valor: "SABADO", rotulo: "Sábado" },
+  { valor: "DOMINGO", rotulo: "Domingo" },
+];
+
 export default function AbaMapa() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === "dark" ? "dark" : "light"];
@@ -38,7 +46,10 @@ export default function AbaMapa() {
   const [rotas, setRotas] = useState<Rota[]>([]);
   const [pontos, setPontos] = useState<Ponto[]>([]);
   const [itinerario, setItinerario] = useState<ItemItinerario[]>([]);
+  const [tipoDiaSelecionado, setTipoDiaSelecionado] = useState<TipoDia | null>(null);
+  const [seletorDiaVisivel, setSeletorDiaVisivel] = useState(false);
   const [itinerarioVisivel, setItinerarioVisivel] = useState(false);
+  const [avisoItinerario, setAvisoItinerario] = useState<string | null>(null);
 
   const [linhaSelecionada, setLinhaSelecionada] =
     useState<Linha | null>(null);
@@ -91,6 +102,8 @@ export default function AbaMapa() {
     setRotas([]);
     setPontos([]);
     setItinerario([]);
+    setTipoDiaSelecionado(null);
+    setSeletorDiaVisivel(false);
     setItinerarioVisivel(false);
     setErro(null);
     setCarregando(true);
@@ -120,16 +133,45 @@ export default function AbaMapa() {
     setCarregando(true);
 
     try {
-      const [dadosPontos, dadosItinerario] = await Promise.all([
-        buscar<Ponto[]>(`/rotas/${rota.id}/pontos`),
-        buscar<ItemItinerario[]>(`/rotas/${rota.id}/itinerario`),
-      ]);
+      const dadosPontos = await buscar<Ponto[]>(`/rotas/${rota.id}/pontos`);
       setPontos(dadosPontos);
-      setItinerario(dadosItinerario);
     } catch (e) {
       setErro(
         e instanceof Error ? e.message : "Não foi possível carregar os pontos."
       );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function selecionarTipoDia(tipoDia: TipoDia) {
+    if (!rotaSelecionada) return;
+
+    setCarregando(true);
+    setErro(null);
+    try {
+      const dados = await buscar<ItemItinerario[]>(
+        `/rotas/${rotaSelecionada.id}/itinerario?tipoDia=${tipoDia}`
+      );
+      if (dados.length === 0) {
+        const rotulo = TIPOS_DIA.find((item) => item.valor === tipoDia)?.rotulo;
+        setSeletorDiaVisivel(false);
+        setAvisoItinerario(
+          `Não há itinerário cadastrado para ${rotulo?.toLowerCase() ?? "este dia"}.`
+        );
+        return;
+      }
+
+      setItinerario(dados);
+      setTipoDiaSelecionado(tipoDia);
+      setAvisoItinerario(null);
+      setSeletorDiaVisivel(false);
+      setItinerarioVisivel(true);
+    } catch (e) {
+      setErro(
+        e instanceof Error ? e.message : "Não foi possível carregar o itinerário."
+      );
+      setSeletorDiaVisivel(false);
     } finally {
       setCarregando(false);
     }
@@ -233,13 +275,65 @@ export default function AbaMapa() {
       {linhaSelecionada && rotaSelecionada && (
         <Pressable
           style={styles.botaoItinerario}
-          onPress={() => setItinerarioVisivel(true)}
+          onPress={() => setSeletorDiaVisivel(true)}
           accessibilityRole="button"
           accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
         >
           <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
         </Pressable>
       )}
+
+      <Modal
+        visible={seletorDiaVisivel}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSeletorDiaVisivel(false)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCartao}>
+            <Text style={styles.modalTitulo}>Selecione o tipo de dia</Text>
+            <Text style={styles.modalSubtitulo}>{rotaSelecionada?.nome}</Text>
+            {TIPOS_DIA.map((tipoDia) => (
+              <Pressable
+                key={tipoDia.valor}
+                style={styles.opcaoTipoDia}
+                onPress={() => selecionarTipoDia(tipoDia.valor)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.opcaoTipoDiaTexto}>{tipoDia.rotulo}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              style={styles.botaoFechar}
+              onPress={() => setSeletorDiaVisivel(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.botaoItinerarioTexto}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={avisoItinerario !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvisoItinerario(null)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCartao}>
+            <Text style={styles.modalTitulo}>Itinerário indisponível</Text>
+            <Text style={styles.mensagemAvisoItinerario}>{avisoItinerario}</Text>
+            <Pressable
+              style={styles.botaoFechar}
+              onPress={() => setAvisoItinerario(null)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.botaoItinerarioTexto}>Entendi</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={itinerarioVisivel}
@@ -249,7 +343,9 @@ export default function AbaMapa() {
       >
         <View style={styles.modalFundo}>
           <View style={styles.modalCartao}>
-            <Text style={styles.modalTitulo}>Itinerário</Text>
+            <Text style={styles.modalTitulo}>Itinerário · {
+              TIPOS_DIA.find((item) => item.valor === tipoDiaSelecionado)?.rotulo
+            }</Text>
             <Text style={styles.modalSubtitulo}>
               {linhaSelecionada?.nome} · {rotaSelecionada?.nome}
             </Text>

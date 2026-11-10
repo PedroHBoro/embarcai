@@ -122,6 +122,25 @@ export const createMapaStyles = (colors: ThemeColors) => {
       color: colors.textSecondary,
       fontSize: 13,
     },
+    opcaoTipoDia: {
+      minHeight: 48,
+      marginBottom: 8,
+      paddingHorizontal: 16,
+      justifyContent: "center",
+      borderRadius: 14,
+      backgroundColor: colors.inputBackground,
+    },
+    opcaoTipoDiaTexto: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    mensagemAvisoItinerario: {
+      marginTop: 12,
+      color: colors.textSecondary,
+      fontSize: 15,
+      lineHeight: 22,
+    },
     tabela: {
       flexGrow: 0,
       maxHeight: 360,

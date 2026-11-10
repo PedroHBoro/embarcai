@@ -44,7 +44,7 @@ export default function ListaFiltrada({
     [opcoes, filtro]
   );
 
-  function selecionar(valor: string) {
+  function selecionar(valor: Opcao) {
     onSelecionar(valor);
     setVisivel(false);
     setFiltro("");
