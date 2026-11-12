@@ -11,11 +11,16 @@ import {
 import { Colors } from "@/styles/tab";
 import { createListaFiltradaStyles } from "@/styles/listaFiltrada";
 
+type Opcao = {
+  id: number;
+  nome: string;
+};
+
 type Props = {
   titulo: string;
-  opcoes: string[];
-  selecionado: string | null;
-  onSelecionar: (valor: string) => void;
+  opcoes: Opcao[];
+  selecionado: Opcao | null;
+  onSelecionar: (valor: Opcao) => void;
 };
 
 export default function ListaFiltrada({
@@ -34,12 +39,12 @@ export default function ListaFiltrada({
   const filtradas = useMemo(
     () =>
       opcoes.filter((opcao) =>
-        opcao.toLowerCase().includes(filtro.trim().toLowerCase())
+        opcao.nome.toLowerCase().includes(filtro.trim().toLowerCase())
       ),
     [opcoes, filtro]
   );
 
-  function selecionar(valor: string) {
+  function selecionar(valor: Opcao) {
     onSelecionar(valor);
     setVisivel(false);
     setFiltro("");
@@ -52,7 +57,7 @@ export default function ListaFiltrada({
         onPress={() => setVisivel(true)}
       >
         <Text style={styles.texto}>
-          {selecionado ?? `Selecionar ${titulo}`}
+          {selecionado?.nome ?? `Selecionar ${titulo}`}
         </Text>
       </Pressable>
 
@@ -77,7 +82,7 @@ export default function ListaFiltrada({
 
             <FlatList
               data={filtradas}
-              keyExtractor={(item) => item}
+              keyExtractor={(item) => String(item.id)}
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <Text style={styles.vazio}>Nenhum resultado.</Text>
@@ -87,7 +92,7 @@ export default function ListaFiltrada({
                   style={styles.opcao}
                   onPress={() => selecionar(item)}
                 >
-                  <Text style={styles.texto}>{item}</Text>
+                  <Text style={styles.texto}>{item.nome}</Text>
                 </Pressable>
               )}
             />
