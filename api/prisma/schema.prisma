@@ -14,20 +14,40 @@ model Linha {
 }
 
 model Rota {
-  id      Int     @id @default(autoincrement())
-  nome    String
-  linhaId Int
-  linha   Linha   @relation(fields: [linhaId], references: [id])
-  pontos  Ponto[]
+  id          Int          @id @default(autoincrement())
+  nome        String
+  linhaId     Int
+  linha       Linha        @relation(fields: [linhaId], references: [id])
+  itinerarios Itinerario[]
 }
 
 model Ponto {
-  id        Int    @id @default(autoincrement())
-  nome      String
-  latitude  Float
-  longitude Float
-  rotaId    Int
-  rota      Rota   @relation(fields: [rotaId], references: [id])
+  id          Int          @id @default(autoincrement())
+  nome        String
+  latitude    Float
+  longitude   Float
+  itinerarios Itinerario[]
+}
+
+model Itinerario {
+  id      Int     @id @default(autoincrement())
+  rotaId  Int
+  rota    Rota    @relation(fields: [rotaId], references: [id], onDelete: Cascade)
+  pontoId Int
+  ponto   Ponto   @relation(fields: [pontoId], references: [id], onDelete: Cascade)
+  tipoDia TipoDia @default(DIA_UTIL)
+  ordem   Int
+  horario String
+
+  @@unique([rotaId, tipoDia, ordem])
+  @@index([rotaId, tipoDia])
+  @@index([pontoId])
+}
+
+enum TipoDia {
+  DIA_UTIL
+  SABADO
+  DOMINGO
 }
 
 model Usuario {
@@ -38,6 +58,7 @@ model Usuario {
   telefone String @db.Char(11)
   senha    String @db.Char(60)
 }
+
 /*
 enum TipoPasse {
   NORMAL
