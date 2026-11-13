@@ -1,26 +1,21 @@
-import { Router } from "express";
+import { Request, Router } from "express";
 import prisma from "../../prisma.client";
 
 export const cartoesRoutes = Router();
 
 const FORMATO_NUMERO_CARTAO = /^\d{8,10}$/;
 
-cartoesRoutes.get("/", async (req, res) => {
-  const perfilIdParam = req.query.perfilId;
-  const perfilId =
-    perfilIdParam !== undefined ? Number(perfilIdParam) : undefined;
+function obterPerfilId(req: Request): number | null {
+  const sub = Number(req.user?.sub);
+  return Number.isInteger(sub) && sub > 0 ? sub : null;
+}
 
-  if (
-    perfilId !== undefined &&
-    (!Number.isInteger(perfilId) || perfilId <= 0)
-  ) {
-    res.status(400).json({ erro: "ID do perfil inválido." });
-    return;
-  }
+cartoesRoutes.get("/", async (req, res) => {
+  const perfilId = obterPerfilId(req);
 
   try {
     const cartoes = await prisma.cartao.findMany({
-      where: perfilId !== undefined ? { perfilId } : undefined,
+      where: perfilId !== null ? { perfilId } : undefined,
       orderBy: { id: "asc" },
     });
 
@@ -89,11 +84,11 @@ cartoesRoutes.get("/:cartaoId/saldo", async (req, res) => {
 });
 
 cartoesRoutes.post("/", async (req, res) => {
+  const perfilId = obterPerfilId(req) ?? req.body.perfilId ?? null;
   const {
     nome,
     numeroTccc,
     saldo,
-    perfilId,
     tipoPasse,
     instituicaoEnsino,
     comprovanteResidencia,
@@ -179,7 +174,6 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
     tipoPasse,
     instituicaoEnsino,
     comprovanteResidencia,
-    perfilId,
   } = req.body;
 
   if (!nome || typeof nome !== "string" || !nome.trim()) {
@@ -228,7 +222,6 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
           tipoPasse === "ESTUDANTE" ? instituicaoEnsino.trim() : null,
         comprovanteResidencia:
           tipoPasse === "ESTUDANTE" ? comprovanteResidencia.trim() : null,
-        ...(perfilId !== undefined ? { perfilId } : {}),
       },
     });
 

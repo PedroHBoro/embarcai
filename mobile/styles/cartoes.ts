@@ -69,6 +69,7 @@ export const createCartoesStyles = (colors: ThemeColors) => {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+      gap: 12,
       backgroundColor: highlightBoxBg,
       borderRadius: 12,
       paddingHorizontal: 14,
@@ -76,11 +77,14 @@ export const createCartoesStyles = (colors: ThemeColors) => {
       marginBottom: 14,
     },
     saldoLabel: {
+      flex: 1,
+      flexShrink: 1,
       fontSize: 13,
       color: colors.textSecondary,
       fontWeight: "500",
     },
     saldoValor: {
+      flexShrink: 0,
       fontSize: 16,
       fontWeight: "700",
       color: colors.primary,
