@@ -356,5 +356,26 @@ export const createCartoesStyles = (colors: ThemeColors) => {
       fontWeight: "800",
       color: colors.primary,
     },
+
+    // NFC Pulse Circle (Leitura NFC)
+    nfcPulseCircle: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: highlightBoxBg,
+      alignItems: "center",
+      justifyContent: "center",
+      alignSelf: "center",
+      marginVertical: 14,
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    sucessoTexto: {
+      textAlign: "center",
+      color: isDark ? "#81C784" : "#2E7D32",
+      fontSize: 15,
+      marginBottom: 12,
+      fontWeight: "700",
+    },
   });
 };
