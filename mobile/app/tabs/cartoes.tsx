@@ -85,6 +85,27 @@ export default function CartoesScreen() {
     null
   );
 
+  async function carregarInstituicoes() {
+    if (!API_URL) {
+      setErroInstituicoes("API não configurada.");
+      return;
+    }
+
+    try {
+      const resposta = await api.get("/instituicoes-ensino");
+      if (!resposta.ok) {
+        if (resposta.status === 401) {
+          throw new Error("Sessão ausente ou expirada. Entre novamente na sua conta.");
+        }
+        throw new Error(`A API respondeu HTTP ${resposta.status} ao buscar instituições.`);
+      }
+      setInstituicoes((await resposta.json()) as InstituicaoEnsino[]);
+      setErroInstituicoes(null);
+    } catch (e) {
+      setErroInstituicoes(e instanceof Error ? e.message : "Falha ao carregar instituições.");
+    }
+  }
+
   useEffect(() => {
     async function carregarCartoes() {
       if (!API_URL) {
@@ -112,28 +133,12 @@ export default function CartoesScreen() {
       }
     }
 
-    async function carregarInstituicoes() {
-      if (!API_URL) return;
-      try {
-        const resposta = await api.get("/instituicoes-ensino");
-        if (!resposta.ok) {
-          if (resposta.status === 401) {
-            throw new Error("Sessão ausente ou expirada. Entre novamente na sua conta.");
-          }
-          throw new Error(`A API respondeu HTTP ${resposta.status} ao buscar instituições.`);
-        }
-        setInstituicoes((await resposta.json()) as InstituicaoEnsino[]);
-        setErroInstituicoes(null);
-      } catch (e) {
-        setErroInstituicoes(e instanceof Error ? e.message : "Falha ao carregar instituições.");
-      }
-    }
-
     carregarCartoes();
     carregarInstituicoes();
   }, []);
 
   function abrirCadastro() {
+    void carregarInstituicoes();
     setCartaoEditando(null);
     setNome("");
     setNumero("");
@@ -146,6 +151,7 @@ export default function CartoesScreen() {
   }
 
   function abrirEdicao(cartao: Cartao) {
+    void carregarInstituicoes();
     setCartaoEditando(cartao);
     setNome(cartao.nome);
     setNumero(cartao.numeroTccc);
@@ -355,7 +361,10 @@ export default function CartoesScreen() {
             </Text>
             <Switch
               value={passeEstudantil}
-              onValueChange={setPasseEstudantil}
+              onValueChange={(ativo) => {
+                setPasseEstudantil(ativo);
+                if (ativo) void carregarInstituicoes();
+              }}
               trackColor={{ false: "#79747E", true: "#6750A4" }}
               thumbColor="#FFFFFF"
             />
@@ -363,7 +372,7 @@ export default function CartoesScreen() {
 
           {passeEstudantil && (
             <>
-              <View style={styles.inputWrapper}>
+              <View style={{ marginBottom: 18 }}>
                 <Text style={styles.inputLabel}>Instituição de Ensino</Text>
                 <ListaFiltrada
                   titulo="uma instituição"
@@ -380,26 +389,18 @@ export default function CartoesScreen() {
                 )}
               </View>
 
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabel}>Tipo de desconto</Text>
-                <View style={styles.discountOptions}>
-                  {([
-                    ["TOTAL", "Integral"],
-                    ["PARCIAL", "Parcial"],
-                  ] as const).map(([valor, rotulo]) => (
-                    <Pressable
-                      key={valor}
-                      style={[
-                        styles.discountOption,
-                        tipoDescontoEstudante === valor && styles.discountOptionSelected,
-                      ]}
-                      onPress={() => setTipoDescontoEstudante(valor)}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.discountOptionText}>{rotulo}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+              <View style={styles.switchCard}>
+                <Text style={styles.switchLabel}>
+                  Desconto total
+                </Text>
+                <Switch
+                  value={tipoDescontoEstudante === "TOTAL"}
+                  onValueChange={(ativo) =>
+                    setTipoDescontoEstudante(ativo ? "TOTAL" : "PARCIAL")
+                  }
+                  trackColor={{ false: "#79747E", true: "#6750A4" }}
+                  thumbColor="#FFFFFF"
+                />
               </View>
 
               <View style={styles.inputWrapper}>

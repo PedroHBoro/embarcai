@@ -111,7 +111,7 @@ export const createMapaStyles = (colors: ThemeColors) => {
       alignItems: "center",
       justifyContent: "center",
       borderRadius: 28,
-      backgroundColor: "#3B6E63",
+      backgroundColor: "#6750A4",
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,

@@ -279,27 +279,6 @@ export const createCartoesStyles = (colors: ThemeColors) => {
       color: colors.text,
       paddingVertical: 2,
     },
-    discountOptions: {
-      flexDirection: "row",
-      gap: 10,
-      marginTop: 8,
-    },
-    discountOption: {
-      flex: 1,
-      alignItems: "center",
-      paddingVertical: 10,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-    },
-    discountOptionSelected: {
-      backgroundColor: chipBg,
-    },
-    discountOptionText: {
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: "600",
-    },
-
     // Estado vazio
     emptyCard: {
       backgroundColor: colors.inputBackground,

@@ -19,8 +19,46 @@ type Cartao = {
   nome: string;
   numeroTccc: string;
   tipoPasse: "NORMAL" | "ESTUDANTE";
-  instituicaoEnsino?: { nome: string; municipioId: number } | null;
+  instituicaoEnsino?: {
+    nome: string;
+    municipioId: number;
+    municipio?: { id: number; nome: string };
+  } | null;
 };
+
+function mascararNumeroCartao(numero: string): string {
+  const digitos = numero.replace(/\D/g, "");
+  if (digitos.length <= 4) return digitos;
+  return `${"*".repeat(digitos.length - 4)}${digitos.slice(-4)}`;
+}
+
+function mesmoMunicipio(linha: Linha, cartao: Cartao): boolean {
+  const municipioLinhaId = linha.municipioId ?? linha.municipio?.id;
+  const municipioInstituicao = cartao.instituicaoEnsino;
+  const municipioInstituicaoId =
+    municipioInstituicao?.municipioId ?? municipioInstituicao?.municipio?.id;
+
+  if (
+    municipioLinhaId != null &&
+    municipioInstituicaoId != null &&
+    municipioLinhaId === municipioInstituicaoId
+  ) {
+    return true;
+  }
+
+  const normalizar = (nome?: string) =>
+    nome?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  const nomeMunicipioLinha = normalizar(linha.municipio?.nome);
+  const nomeMunicipioInstituicao = normalizar(
+    municipioInstituicao?.municipio?.nome
+  );
+
+  return Boolean(
+    nomeMunicipioLinha &&
+      nomeMunicipioInstituicao &&
+      nomeMunicipioLinha === nomeMunicipioInstituicao
+  );
+}
 
 type Rota = {
   id: number;
@@ -301,24 +339,26 @@ export default function AbaMapa() {
         </View>
       )}
 
-      {linhaSelecionada && rotaSelecionada && (
+      {linhaSelecionada && (
         <View style={styles.botoesRota}>
-          <Pressable
-            style={[styles.botaoItinerario, styles.botaoRota]}
-            onPress={() => setSeletorDiaVisivel(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
-          >
-            <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
-          </Pressable>
           <Pressable
             style={[styles.botaoCompatibilidade, styles.botaoRota]}
             onPress={abrirCompatibilidadeCartoes}
             accessibilityRole="button"
             accessibilityLabel="Ver compatibilidade dos cartões com esta linha"
           >
-            <Text style={styles.botaoItinerarioTexto}>Meus cartões</Text>
+            <Text style={styles.botaoItinerarioTexto}>Ver compatibilidade</Text>
           </Pressable>
+          {rotaSelecionada && (
+            <Pressable
+              style={[styles.botaoItinerario, styles.botaoRota]}
+              onPress={() => setSeletorDiaVisivel(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
+            >
+              <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -342,15 +382,16 @@ export default function AbaMapa() {
             <ScrollView style={styles.tabela}>
               {cartoes.map((cartao) => {
                 const compativel = cartao.tipoPasse === "NORMAL" ||
-                  (linhaSelecionada?.municipioId != null &&
-                    cartao.instituicaoEnsino?.municipioId === linhaSelecionada.municipioId);
+                  (linhaSelecionada !== null && mesmoMunicipio(linhaSelecionada, cartao));
                 return (
                   <View
                     key={cartao.id}
                     style={[styles.cartaoCompatibilidade, compativel ? styles.cartaoCompativel : styles.cartaoIncompativel]}
                   >
                     <View style={styles.cartaoCompatibilidadeInfo}>
-                      <Text style={styles.nomeCartaoCompatibilidade}>{cartao.nome}</Text>
+                      <Text style={styles.nomeCartaoCompatibilidade}>
+                        {cartao.nome} - {mascararNumeroCartao(cartao.numeroTccc)}
+                      </Text>
                       <Text style={styles.instituicaoCartaoCompatibilidade}>
                         {cartao.tipoPasse === "NORMAL" ? "Passe comum" : cartao.instituicaoEnsino?.nome ?? "Instituição não informada"}
                       </Text>
