@@ -246,8 +246,6 @@ export default function AbaMapa() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Mapa de ônibus</Text>
-
       <View style={styles.seletores}>
         <View style={styles.seletor}>
           <Text style={styles.label}>Linha</Text>
@@ -304,10 +302,6 @@ export default function AbaMapa() {
 
       {!carregando && !erro && linhas.length === 0 && (
         <Text style={styles.aviso}>Nenhuma linha cadastrada.</Text>
-      )}
-
-      {linhaSelecionada && !rotaSelecionada && (
-        <Text style={styles.aviso}>Selecione uma rota.</Text>
       )}
 
       {linhaSelecionada && rotaSelecionada && pontos.length > 0 && (
