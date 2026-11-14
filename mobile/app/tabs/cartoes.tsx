@@ -15,8 +15,16 @@ import { Colors } from "@/styles/tab";
 import { createCartoesStyles } from "@/styles/cartoes";
 import { API_URL } from "@/constants/config";
 import { api } from "@/constants/api";
+import ListaFiltrada from "@/components/ListaFiltrada";
 
 export type TipoPasse = "NORMAL" | "ESTUDANTE";
+export type TipoDescontoEstudante = "TOTAL" | "PARCIAL";
+
+type InstituicaoEnsino = {
+  id: number;
+  nome: string;
+  municipioId: number;
+};
 
 export type Cartao = {
   id: number;
@@ -25,7 +33,9 @@ export type Cartao = {
   saldo: number;
   perfilId?: number | null;
   tipoPasse: TipoPasse;
-  instituicaoEnsino?: string | null;
+  idInstituicaoEnsino?: number | null;
+  tipoDescontoEstudante: TipoDescontoEstudante;
+  instituicaoEnsino?: (InstituicaoEnsino & { municipio?: { id: number; nome: string } }) | null;
   comprovanteResidencia?: string | null;
 };
 
@@ -49,8 +59,10 @@ export default function CartoesScreen() {
   const styles = createCartoesStyles(colors);
 
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const [instituicoes, setInstituicoes] = useState<InstituicaoEnsino[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [erroInstituicoes, setErroInstituicoes] = useState<string | null>(null);
 
   const [modoTela, setModoTela] = useState<"lista" | "formulario">("lista");
   const [cartaoEditando, setCartaoEditando] = useState<Cartao | null>(null);
@@ -61,7 +73,8 @@ export default function CartoesScreen() {
   const [nome, setNome] = useState("");
   const [numero, setNumero] = useState("");
   const [passeEstudantil, setPasseEstudantil] = useState(false);
-  const [instituicaoEnsino, setInstituicaoEnsino] = useState("");
+  const [instituicaoSelecionada, setInstituicaoSelecionada] = useState<InstituicaoEnsino | null>(null);
+  const [tipoDescontoEstudante, setTipoDescontoEstudante] = useState<TipoDescontoEstudante>("TOTAL");
   const [comprovanteResidencia, setComprovanteResidencia] = useState("");
   const [erroFormulario, setErroFormulario] = useState<string | null>(null);
 
@@ -74,25 +87,50 @@ export default function CartoesScreen() {
 
   useEffect(() => {
     async function carregarCartoes() {
-      if (!API_URL) return;
+      if (!API_URL) {
+        setErro("API não configurada. Verifique EXPO_PUBLIC_API_LOCAL.");
+        return;
+      }
       setCarregando(true);
       setErro(null);
 
       try {
         const resposta = await api.get("/cartoes");
         if (!resposta.ok) {
-          throw new Error(`Erro HTTP ${resposta.status}`);
+          const body = await resposta.json().catch(() => null);
+          if (resposta.status === 401) {
+            throw new Error("Sessão ausente ou expirada. Entre novamente na sua conta.");
+          }
+          throw new Error(body?.erro ?? `A API respondeu HTTP ${resposta.status}.`);
         }
         const dados = (await resposta.json()) as Cartao[];
         setCartoes(dados);
-      } catch {
-
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Falha de conexão ao carregar seus cartões.");
       } finally {
         setCarregando(false);
       }
     }
 
+    async function carregarInstituicoes() {
+      if (!API_URL) return;
+      try {
+        const resposta = await api.get("/instituicoes-ensino");
+        if (!resposta.ok) {
+          if (resposta.status === 401) {
+            throw new Error("Sessão ausente ou expirada. Entre novamente na sua conta.");
+          }
+          throw new Error(`A API respondeu HTTP ${resposta.status} ao buscar instituições.`);
+        }
+        setInstituicoes((await resposta.json()) as InstituicaoEnsino[]);
+        setErroInstituicoes(null);
+      } catch (e) {
+        setErroInstituicoes(e instanceof Error ? e.message : "Falha ao carregar instituições.");
+      }
+    }
+
     carregarCartoes();
+    carregarInstituicoes();
   }, []);
 
   function abrirCadastro() {
@@ -100,7 +138,8 @@ export default function CartoesScreen() {
     setNome("");
     setNumero("");
     setPasseEstudantil(false);
-    setInstituicaoEnsino("");
+    setInstituicaoSelecionada(null);
+    setTipoDescontoEstudante("TOTAL");
     setComprovanteResidencia("");
     setErroFormulario(null);
     setModoTela("formulario");
@@ -111,7 +150,12 @@ export default function CartoesScreen() {
     setNome(cartao.nome);
     setNumero(cartao.numeroTccc);
     setPasseEstudantil(cartao.tipoPasse === "ESTUDANTE");
-    setInstituicaoEnsino(cartao.instituicaoEnsino ?? "");
+    setInstituicaoSelecionada(
+      instituicoes.find((item) => item.id === cartao.idInstituicaoEnsino) ??
+        cartao.instituicaoEnsino ??
+        null
+    );
+    setTipoDescontoEstudante(cartao.tipoDescontoEstudante ?? "TOTAL");
     setComprovanteResidencia(cartao.comprovanteResidencia ?? "");
     setErroFormulario(null);
     setModoTela("formulario");
@@ -148,7 +192,7 @@ export default function CartoesScreen() {
 
     if (
       passeEstudantil &&
-      (!instituicaoEnsino.trim() || !comprovanteResidencia.trim())
+      (!instituicaoSelecionada || !comprovanteResidencia.trim())
     ) {
       setErroFormulario(
         "Preencha a Instituição de Ensino e o Comprovante de residência."
@@ -158,11 +202,17 @@ export default function CartoesScreen() {
 
     setErroFormulario(null);
 
+    if (!API_URL) {
+      setErroFormulario("A API não está configurada; o cartão não foi salvo.");
+      return;
+    }
+
     const payload = {
       nome: nome.trim(),
       numeroTccc: numeroLimpo,
       tipoPasse: (passeEstudantil ? "ESTUDANTE" : "NORMAL") as TipoPasse,
-      instituicaoEnsino: passeEstudantil ? instituicaoEnsino.trim() : null,
+      idInstituicaoEnsino: passeEstudantil ? instituicaoSelecionada?.id : null,
+      tipoDescontoEstudante: passeEstudantil ? tipoDescontoEstudante : "TOTAL",
       comprovanteResidencia: passeEstudantil
         ? comprovanteResidencia.trim()
         : null,
@@ -170,64 +220,37 @@ export default function CartoesScreen() {
 
     if (cartaoEditando) {
       try {
-        if (API_URL) {
-          const resposta = await api.put(
-            `/cartoes/${cartaoEditando.id}`,
-            payload
-          );
-          if (resposta.status === 409 || resposta.status === 400) {
-            const body = await resposta.json();
-            setErroFormulario(body.erro ?? "Erro ao validar dados do cartão.");
-            return;
-          }
-          if (resposta.ok) {
-            const atualizado = (await resposta.json()) as Cartao;
-            setCartoes((lista) =>
-              lista.map((c) => (c.id === atualizado.id ? atualizado : c))
-            );
-            setModoTela("lista");
-            return;
-          }
+        const resposta = await api.put(
+          `/cartoes/${cartaoEditando.id}`,
+          payload
+        );
+        const body = resposta.ok ? null : await resposta.json().catch(() => null);
+        if (!resposta.ok) {
+          setErroFormulario(body?.erro ?? `Não foi possível salvar o cartão (HTTP ${resposta.status}).`);
+          return;
         }
-      } catch {
-
+        const atualizado = (await resposta.json()) as Cartao;
+        setCartoes((lista) =>
+          lista.map((c) => (c.id === atualizado.id ? atualizado : c))
+        );
+        setModoTela("lista");
+      } catch (e) {
+        setErroFormulario(e instanceof Error ? e.message : "Falha de conexão ao salvar o cartão.");
       }
-
-      setCartoes((lista) =>
-        lista.map((c) =>
-          c.id === cartaoEditando.id ? { ...c, ...payload } : c
-        )
-      );
-      setModoTela("lista");
     } else {
       try {
-        if (API_URL) {
-          const resposta = await api.post("/cartoes", { ...payload, saldo: 0 });
-          if (resposta.status === 409 || resposta.status === 400) {
-            const body = await resposta.json();
-            setErroFormulario(body.erro ?? "Erro ao validar dados do cartão.");
-            return;
-          }
-          if (resposta.ok) {
-            const criado = (await resposta.json()) as Cartao;
-            setCartoes((lista) => [...lista, criado]);
-            setModoTela("lista");
-            return;
-          }
+        const resposta = await api.post("/cartoes", { ...payload, saldo: 0 });
+        const body = resposta.ok ? null : await resposta.json().catch(() => null);
+        if (!resposta.ok) {
+          setErroFormulario(body?.erro ?? `Não foi possível cadastrar o cartão (HTTP ${resposta.status}).`);
+          return;
         }
-      } catch {
-
+        const criado = (await resposta.json()) as Cartao;
+        setCartoes((lista) => [...lista, criado]);
+        setModoTela("lista");
+      } catch (e) {
+        setErroFormulario(e instanceof Error ? e.message : "Falha de conexão ao cadastrar o cartão.");
       }
-
-      const novoId =
-        cartoes.length > 0 ? Math.max(...cartoes.map((c) => c.id)) + 1 : 1;
-      const novoCartao: Cartao = {
-        id: novoId,
-        saldo: 0,
-        ...payload,
-      };
-      setCartoes((lista) => [...lista, novoCartao]);
-      setModoTela("lista");
     }
   }
 
@@ -236,11 +259,14 @@ export default function CartoesScreen() {
     const id = cartaoParaRemover.id;
 
     try {
-      if (API_URL) {
-        await api.delete(`/cartoes/${id}`);
+      const resposta = await api.delete(`/cartoes/${id}`);
+      if (!resposta.ok) {
+        setErro(`Não foi possível remover o cartão (HTTP ${resposta.status}).`);
+        return;
       }
-    } catch {
- 
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha de conexão ao remover o cartão.");
+      return;
     }
 
     setCartoes((lista) => lista.filter((c) => c.id !== id));
@@ -339,13 +365,41 @@ export default function CartoesScreen() {
             <>
               <View style={styles.inputWrapper}>
                 <Text style={styles.inputLabel}>Instituição de Ensino</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="UEM"
-                  placeholderTextColor={colors.textSecondary}
-                  value={instituicaoEnsino}
-                  onChangeText={setInstituicaoEnsino}
+                <ListaFiltrada
+                  titulo="uma instituição"
+                  opcoes={instituicoes}
+                  selecionado={instituicaoSelecionada}
+                  onSelecionar={(opcao) =>
+                    setInstituicaoSelecionada(
+                      instituicoes.find((item) => item.id === opcao.id) ?? null
+                    )
+                  }
                 />
+                {erroInstituicoes && (
+                  <Text style={styles.erroTexto}>{erroInstituicoes}</Text>
+                )}
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Tipo de desconto</Text>
+                <View style={styles.discountOptions}>
+                  {([
+                    ["TOTAL", "Integral"],
+                    ["PARCIAL", "Parcial"],
+                  ] as const).map(([valor, rotulo]) => (
+                    <Pressable
+                      key={valor}
+                      style={[
+                        styles.discountOption,
+                        tipoDescontoEstudante === valor && styles.discountOptionSelected,
+                      ]}
+                      onPress={() => setTipoDescontoEstudante(valor)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.discountOptionText}>{rotulo}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
               <View style={styles.inputWrapper}>
@@ -443,7 +497,7 @@ export default function CartoesScreen() {
 
               {cartao.tipoPasse === "ESTUDANTE" && cartao.instituicaoEnsino && (
                 <Text style={styles.cartaoInfoEstudante}>
-                  Instituição: {cartao.instituicaoEnsino}
+                  Instituição: {cartao.instituicaoEnsino.nome} · Desconto {cartao.tipoDescontoEstudante === "TOTAL" ? "integral" : "parcial"}
                 </Text>
               )}
 

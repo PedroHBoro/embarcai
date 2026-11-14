@@ -7,10 +7,28 @@ datasource db {
   provider = "postgresql"
 }
 
+model Municipio {
+  id                 Int                 @id @default(autoincrement())
+  nome               String
+  valor              Float
+  linhas             Linha[]
+  instituicoesEnsino InstituicaoEnsino[]
+}
+
+model InstituicaoEnsino {
+  id          Int       @id @default(autoincrement())
+  nome        String
+  municipioId Int
+  municipio   Municipio @relation(fields: [municipioId], references: [id])
+  cartoes     Cartao[]
+}
+
 model Linha {
-  id    Int    @id @default(autoincrement())
-  nome  String
-  rotas Rota[]
+  id          Int        @id @default(autoincrement())
+  nome        String
+  municipioId Int?
+  municipio   Municipio? @relation(fields: [municipioId], references: [id])
+  rotas       Rota[]
 }
 
 model Rota {
@@ -65,14 +83,21 @@ enum TipoPasse {
   ESTUDANTE
 }
 
+enum TipoDescontoEstudante {
+  TOTAL
+  PARCIAL
+}
+
 model Cartao {
-  id                    Int       @id @default(autoincrement())
+  id                    Int                   @id @default(autoincrement())
   nome                  String
-  numeroTccc            String    @unique
-  saldo                 Float     @default(0)
+  numeroTccc            String                @unique
+  saldo                 Float                 @default(0)
   perfilId              Int?
-  perfil                Usuario?  @relation(fields: [perfilId], references: [id])
-  tipoPasse             TipoPasse @default(NORMAL)
-  instituicaoEnsino     String?
+  perfil                Usuario?              @relation(fields: [perfilId], references: [id])
+  tipoPasse             TipoPasse             @default(NORMAL)
+  tipoDescontoEstudante TipoDescontoEstudante @default(TOTAL)
+  idInstituicaoEnsino   Int?
+  instituicaoEnsino     InstituicaoEnsino?    @relation(fields: [idInstituicaoEnsino], references: [id])
   comprovanteResidencia String?
 }

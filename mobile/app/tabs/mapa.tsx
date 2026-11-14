@@ -10,6 +10,16 @@ import { api } from "../../constants/api";
 type Linha = {
   id: number;
   nome: string;
+  municipioId: number | null;
+  municipio?: { id: number; nome: string };
+};
+
+type Cartao = {
+  id: number;
+  nome: string;
+  numeroTccc: string;
+  tipoPasse: "NORMAL" | "ESTUDANTE";
+  instituicaoEnsino?: { nome: string; municipioId: number } | null;
 };
 
 type Rota = {
@@ -49,6 +59,10 @@ export default function AbaMapa() {
   const [tipoDiaSelecionado, setTipoDiaSelecionado] = useState<TipoDia | null>(null);
   const [seletorDiaVisivel, setSeletorDiaVisivel] = useState(false);
   const [itinerarioVisivel, setItinerarioVisivel] = useState(false);
+  const [cartoesVisiveis, setCartoesVisiveis] = useState(false);
+  const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const [carregandoCartoes, setCarregandoCartoes] = useState(false);
+  const [erroCartoes, setErroCartoes] = useState<string | null>(null);
   const [avisoItinerario, setAvisoItinerario] = useState<string | null>(null);
 
   const [linhaSelecionada, setLinhaSelecionada] =
@@ -177,6 +191,21 @@ export default function AbaMapa() {
     }
   }
 
+  async function abrirCompatibilidadeCartoes() {
+    setCartoesVisiveis(true);
+    setCarregandoCartoes(true);
+    setErroCartoes(null);
+    try {
+      setCartoes(await buscar<Cartao[]>("/cartoes"));
+    } catch (e) {
+      setErroCartoes(
+        e instanceof Error ? e.message : "Não foi possível carregar os cartões."
+      );
+    } finally {
+      setCarregandoCartoes(false);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Mapa de ônibus</Text>
@@ -273,15 +302,76 @@ export default function AbaMapa() {
       )}
 
       {linhaSelecionada && rotaSelecionada && (
-        <Pressable
-          style={styles.botaoItinerario}
-          onPress={() => setSeletorDiaVisivel(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
-        >
-          <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
-        </Pressable>
+        <View style={styles.botoesRota}>
+          <Pressable
+            style={[styles.botaoItinerario, styles.botaoRota]}
+            onPress={() => setSeletorDiaVisivel(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
+          >
+            <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.botaoCompatibilidade, styles.botaoRota]}
+            onPress={abrirCompatibilidadeCartoes}
+            accessibilityRole="button"
+            accessibilityLabel="Ver compatibilidade dos cartões com esta linha"
+          >
+            <Text style={styles.botaoItinerarioTexto}>Meus cartões</Text>
+          </Pressable>
+        </View>
       )}
+
+      <Modal
+        visible={cartoesVisiveis}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCartoesVisiveis(false)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCartao}>
+            <Text style={styles.modalTitulo}>Compatibilidade dos cartões</Text>
+            <Text style={styles.modalSubtitulo}>
+              Linha {linhaSelecionada?.nome} · {linhaSelecionada?.municipio?.nome ?? "Município não informado"}
+            </Text>
+            {carregandoCartoes && <Text style={styles.tabelaVazia}>Carregando cartões...</Text>}
+            {erroCartoes && <Text style={styles.erro}>{erroCartoes}</Text>}
+            {!carregandoCartoes && !erroCartoes && cartoes.length === 0 && (
+              <Text style={styles.tabelaVazia}>Você ainda não tem cartões cadastrados.</Text>
+            )}
+            <ScrollView style={styles.tabela}>
+              {cartoes.map((cartao) => {
+                const compativel = cartao.tipoPasse === "NORMAL" ||
+                  (linhaSelecionada?.municipioId != null &&
+                    cartao.instituicaoEnsino?.municipioId === linhaSelecionada.municipioId);
+                return (
+                  <View
+                    key={cartao.id}
+                    style={[styles.cartaoCompatibilidade, compativel ? styles.cartaoCompativel : styles.cartaoIncompativel]}
+                  >
+                    <View style={styles.cartaoCompatibilidadeInfo}>
+                      <Text style={styles.nomeCartaoCompatibilidade}>{cartao.nome}</Text>
+                      <Text style={styles.instituicaoCartaoCompatibilidade}>
+                        {cartao.tipoPasse === "NORMAL" ? "Passe comum" : cartao.instituicaoEnsino?.nome ?? "Instituição não informada"}
+                      </Text>
+                    </View>
+                    <Text style={styles.statusCompatibilidade}>
+                      {compativel ? "Compatível" : "Incompatível"}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+            <Pressable
+              style={styles.botaoFechar}
+              onPress={() => setCartoesVisiveis(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.botaoItinerarioTexto}>Fechar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={seletorDiaVisivel}

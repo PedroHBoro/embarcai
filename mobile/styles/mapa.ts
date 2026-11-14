@@ -81,8 +81,15 @@ export const createMapaStyles = (colors: ThemeColors) => {
       marginBottom: 12,
       color: colors.text,
     },
-    botaoItinerario: {
+    botoesRota: {
+      flexDirection: "row",
+      gap: 10,
       marginTop: 14,
+    },
+    botaoRota: {
+      flex: 1,
+    },
+    botaoItinerario: {
       minHeight: 48,
       alignItems: "center",
       justifyContent: "center",
@@ -98,6 +105,18 @@ export const createMapaStyles = (colors: ThemeColors) => {
       color: "#FFFFFF",
       fontSize: 15,
       fontWeight: "700",
+    },
+    botaoCompatibilidade: {
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 28,
+      backgroundColor: "#3B6E63",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
     },
     modalFundo: {
       flex: 1,
@@ -181,6 +200,39 @@ export const createMapaStyles = (colors: ThemeColors) => {
       textAlign: "center",
       color: colors.textSecondary,
       fontSize: 14,
+    },
+    cartaoCompatibilidade: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      marginBottom: 10,
+      padding: 14,
+      borderRadius: 14,
+    },
+    cartaoCompativel: {
+      backgroundColor: isDark ? "#233A32" : "#E4F2E8",
+    },
+    cartaoIncompativel: {
+      backgroundColor: isDark ? "#452E30" : "#F8E7E6",
+    },
+    cartaoCompatibilidadeInfo: {
+      flex: 1,
+    },
+    nomeCartaoCompatibilidade: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "700",
+    },
+    instituicaoCartaoCompatibilidade: {
+      marginTop: 3,
+      color: colors.textSecondary,
+      fontSize: 13,
+    },
+    statusCompatibilidade: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "700",
     },
     botaoFechar: {
       alignSelf: "center",
