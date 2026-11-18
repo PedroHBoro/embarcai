@@ -5,6 +5,7 @@ import { linhasRoutes } from "./linhas/linhas.routes";
 import { rotasRoutes } from "./rotas/rotas.routes";
 import { cartoesRoutes } from "./cartoes/cartoes.routes";
 import { authRoutes } from "./auth/auth.routes";
+import { instituicoesEnsinoRoutes } from "./instituicoes-ensino/instituicoes-ensino.routes";
 
 const publicas = Router();
 publicas.use("/health", healthRoutes);
@@ -15,6 +16,7 @@ autenticadas.use(authMiddleware);
 autenticadas.use("/linhas", linhasRoutes);
 autenticadas.use("/rotas", rotasRoutes);
 autenticadas.use("/cartoes", cartoesRoutes);
+autenticadas.use("/instituicoes-ensino", instituicoesEnsinoRoutes);
 
 export const routes = Router();
 routes.use(publicas);

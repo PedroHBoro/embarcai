@@ -53,7 +53,7 @@ export default function RootLayout() {
       <Tabs.Screen
         name="mapa"
         options={{
-          title: "Mapa",
+          title: "Linhas",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused}>
               <MaterialCommunityIcons
