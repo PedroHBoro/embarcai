@@ -8,35 +8,17 @@ export const createMapaStyles = (colors: ThemeColors) => {
     container: {
       flex: 1,
       paddingHorizontal: 24,
-      paddingTop: 32,
+      paddingTop: 24,
       paddingBottom: 20,
       backgroundColor: colors.background,
     },
-    // Mesmo estilo de bloco destacado ("headerBadge") da tela de Cartões
-    titulo: {
-      alignSelf: "center",
-      backgroundColor: colors.inputBackground,
-      paddingHorizontal: 22,
-      paddingVertical: 14,
-      borderRadius: 12,
-      fontSize: 16,
-      fontWeight: "700",
-      color: colors.text,
-      marginBottom: 24,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: isDark ? 0.3 : 0.15,
-      shadowRadius: 4,
-      elevation: 3,
-    },
     seletores: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 12,
+      flexDirection: "column",
+      alignItems: "stretch",
+      gap: 10,
     },
     seletor: {
-      flex: 1,
-      minWidth: 0,
+      width: "100%",
     },
     label: {
       fontSize: 12,
@@ -81,8 +63,15 @@ export const createMapaStyles = (colors: ThemeColors) => {
       marginBottom: 12,
       color: colors.text,
     },
-    botaoItinerario: {
+    botoesRota: {
+      flexDirection: "row",
+      gap: 10,
       marginTop: 14,
+    },
+    botaoRota: {
+      flex: 1,
+    },
+    botaoItinerario: {
       minHeight: 48,
       alignItems: "center",
       justifyContent: "center",
@@ -98,6 +87,18 @@ export const createMapaStyles = (colors: ThemeColors) => {
       color: "#FFFFFF",
       fontSize: 15,
       fontWeight: "700",
+    },
+    botaoCompatibilidade: {
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 28,
+      backgroundColor: "#6750A4",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
     },
     modalFundo: {
       flex: 1,
@@ -181,6 +182,39 @@ export const createMapaStyles = (colors: ThemeColors) => {
       textAlign: "center",
       color: colors.textSecondary,
       fontSize: 14,
+    },
+    cartaoCompatibilidade: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      marginBottom: 10,
+      padding: 14,
+      borderRadius: 14,
+    },
+    cartaoCompativel: {
+      backgroundColor: isDark ? "#233A32" : "#E4F2E8",
+    },
+    cartaoIncompativel: {
+      backgroundColor: isDark ? "#452E30" : "#F8E7E6",
+    },
+    cartaoCompatibilidadeInfo: {
+      flex: 1,
+    },
+    nomeCartaoCompatibilidade: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "700",
+    },
+    instituicaoCartaoCompatibilidade: {
+      marginTop: 3,
+      color: colors.textSecondary,
+      fontSize: 13,
+    },
+    statusCompatibilidade: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "700",
     },
     botaoFechar: {
       alignSelf: "center",

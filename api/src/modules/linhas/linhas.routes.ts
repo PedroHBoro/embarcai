@@ -7,6 +7,7 @@ linhasRoutes.get("/", async (_req, res) => {
   try {
     const linhas = await prisma.linha.findMany({
       orderBy: { id: "asc" },
+      include: { municipio: true },
     });
 
     res.json(linhas);

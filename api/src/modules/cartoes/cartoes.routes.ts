@@ -17,6 +17,9 @@ cartoesRoutes.get("/", async (req, res) => {
     const cartoes = await prisma.cartao.findMany({
       where: perfilId !== null ? { perfilId } : undefined,
       orderBy: { id: "asc" },
+      include: {
+        instituicaoEnsino: { include: { municipio: true } },
+      },
     });
 
     res.json(cartoes);
@@ -90,8 +93,9 @@ cartoesRoutes.post("/", async (req, res) => {
     numeroTccc,
     saldo,
     tipoPasse,
-    instituicaoEnsino,
+    idInstituicaoEnsino,
     comprovanteResidencia,
+    tipoDescontoEstudante,
   } = req.body;
 
   if (!nome || typeof nome !== "string" || !nome.trim()) {
@@ -121,10 +125,13 @@ cartoesRoutes.post("/", async (req, res) => {
 
   if (
     tipoPasse === "ESTUDANTE" &&
-    (!instituicaoEnsino?.trim() || !comprovanteResidencia?.trim())
+    (!Number.isInteger(Number(idInstituicaoEnsino)) ||
+      Number(idInstituicaoEnsino) <= 0 ||
+      !comprovanteResidencia?.trim() ||
+      !["TOTAL", "PARCIAL"].includes(tipoDescontoEstudante))
   ) {
     res.status(400).json({
-      erro: "Instituição de ensino e comprovante de residência são obrigatórios para passe estudantil.",
+      erro: "Selecione a instituição, o tipo de desconto e informe o comprovante de residência para passe estudantil.",
     });
     return;
   }
@@ -140,10 +147,15 @@ cartoesRoutes.post("/", async (req, res) => {
             ? perfilId
             : null,
         tipoPasse,
-        instituicaoEnsino:
-          tipoPasse === "ESTUDANTE" ? instituicaoEnsino.trim() : null,
+        tipoDescontoEstudante:
+          tipoPasse === "ESTUDANTE" ? tipoDescontoEstudante : "TOTAL",
+        idInstituicaoEnsino:
+          tipoPasse === "ESTUDANTE" ? Number(idInstituicaoEnsino) : null,
         comprovanteResidencia:
           tipoPasse === "ESTUDANTE" ? comprovanteResidencia.trim() : null,
+      },
+      include: {
+        instituicaoEnsino: { include: { municipio: true } },
       },
     });
 
@@ -172,8 +184,9 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
     nome,
     numeroTccc,
     tipoPasse,
-    instituicaoEnsino,
+    idInstituicaoEnsino,
     comprovanteResidencia,
+    tipoDescontoEstudante,
   } = req.body;
 
   if (!nome || typeof nome !== "string" || !nome.trim()) {
@@ -203,10 +216,13 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
 
   if (
     tipoPasse === "ESTUDANTE" &&
-    (!instituicaoEnsino?.trim() || !comprovanteResidencia?.trim())
+    (!Number.isInteger(Number(idInstituicaoEnsino)) ||
+      Number(idInstituicaoEnsino) <= 0 ||
+      !comprovanteResidencia?.trim() ||
+      !["TOTAL", "PARCIAL"].includes(tipoDescontoEstudante))
   ) {
     res.status(400).json({
-      erro: "Instituição de ensino e comprovante de residência são obrigatórios para passe estudantil.",
+      erro: "Selecione a instituição, o tipo de desconto e informe o comprovante de residência para passe estudantil.",
     });
     return;
   }
@@ -218,10 +234,15 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
         nome: nome.trim(),
         numeroTccc: numeroLimpo,
         tipoPasse,
-        instituicaoEnsino:
-          tipoPasse === "ESTUDANTE" ? instituicaoEnsino.trim() : null,
+        tipoDescontoEstudante:
+          tipoPasse === "ESTUDANTE" ? tipoDescontoEstudante : "TOTAL",
+        idInstituicaoEnsino:
+          tipoPasse === "ESTUDANTE" ? Number(idInstituicaoEnsino) : null,
         comprovanteResidencia:
           tipoPasse === "ESTUDANTE" ? comprovanteResidencia.trim() : null,
+      },
+      include: {
+        instituicaoEnsino: { include: { municipio: true } },
       },
     });
 

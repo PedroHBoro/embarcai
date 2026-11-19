@@ -279,7 +279,6 @@ export const createCartoesStyles = (colors: ThemeColors) => {
       color: colors.text,
       paddingVertical: 2,
     },
-
     // Estado vazio
     emptyCard: {
       backgroundColor: colors.inputBackground,
