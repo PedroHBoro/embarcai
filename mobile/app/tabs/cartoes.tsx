@@ -332,68 +332,27 @@ export default function CartoesScreen() {
   async function usarNfcNaCatraca() {
     if (!cartaoNfcModal || processandoNfc) return;
 
-    const tarifa = cartaoNfcModal.tipoPasse === "ESTUDANTE" ? 2.5 : 5.0;
     setProcessandoNfc(true);
     setResultadoNfc(null);
 
     try {
-      if (API_URL) {
-        const resposta = await api.post(
-          `/cartoes/${cartaoNfcModal.id}/uso-nfc`,
-          {}
-        );
-
-        if (resposta.ok) {
-          const dados = (await resposta.json()) as Cartao & {
-            tarifaCobrada?: number;
-          };
-          const tarifaCobrada = dados.tarifaCobrada ?? tarifa;
-          setCartoes((lista) =>
-            lista.map((c) => (c.id === dados.id ? dados : c))
-          );
-          setCartaoNfcModal(dados);
-          Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Success
-          ).catch(() => {});
-          setResultadoNfc({
-            tipo: "sucesso",
-            texto: `Passagem liberada! (-${formatarMoeda(tarifaCobrada)})`,
-          });
-          return;
-        }
-
-        if (resposta.status === 400) {
-          const erroApi = (await resposta.json().catch(() => null)) as {
-            erro?: string;
-            error?: string;
-          } | null;
-          Haptics.notificationAsync(
-            Haptics.NotificationFeedbackType.Error
-          ).catch(() => {});
-          setResultadoNfc({
-            tipo: "erro",
-            texto:
-              erroApi?.erro ??
-              erroApi?.error ??
-              `Saldo insuficiente para a tarifa de ${formatarMoeda(tarifa)}.`,
-          });
-          return;
-        }
+      if (!API_URL) {
+        throw new Error("API não configurada; não foi possível registrar a viagem.");
       }
 
-      if (cartaoNfcModal.saldo < tarifa) {
-        Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Error
-        ).catch(() => {});
-        setResultadoNfc({
-          tipo: "erro",
-          texto: `Saldo insuficiente para a tarifa de ${formatarMoeda(tarifa)}.`,
-        });
-        return;
+      const resposta = await api.post(
+        `/cartoes/${cartaoNfcModal.id}/uso-nfc`,
+        {}
+      );
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        throw new Error(dados?.erro ?? `A API respondeu HTTP ${resposta.status}.`);
       }
 
-      const novoSaldo = Number((cartaoNfcModal.saldo - tarifa).toFixed(2));
-      const atualizado = { ...cartaoNfcModal, saldo: novoSaldo };
+      const atualizado = {
+        ...cartaoNfcModal,
+        ...dados.cartao,
+      } as Cartao;
       setCartoes((lista) =>
         lista.map((c) => (c.id === atualizado.id ? atualizado : c))
       );
@@ -403,32 +362,16 @@ export default function CartoesScreen() {
       ).catch(() => {});
       setResultadoNfc({
         tipo: "sucesso",
-        texto: `Passagem liberada! (-${formatarMoeda(tarifa)})`,
+        texto: `Viagem registrada: ${dados.pontoRota.rota.linha.nome} · ${dados.pontoRota.ponto.nome}. Débito: ${formatarMoeda(dados.saldoGasto)}.`,
       });
-    } catch {
-      if (cartaoNfcModal.saldo < tarifa) {
-        Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Error
-        ).catch(() => {});
-        setResultadoNfc({
-          tipo: "erro",
-          texto: `Saldo insuficiente para a tarifa de ${formatarMoeda(tarifa)}.`,
-        });
-      } else {
-        const novoSaldo = Number((cartaoNfcModal.saldo - tarifa).toFixed(2));
-        const atualizado = { ...cartaoNfcModal, saldo: novoSaldo };
-        setCartoes((lista) =>
-          lista.map((c) => (c.id === atualizado.id ? atualizado : c))
-        );
-        setCartaoNfcModal(atualizado);
-        Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Success
-        ).catch(() => {});
-        setResultadoNfc({
-          tipo: "sucesso",
-          texto: `Passagem liberada! (-${formatarMoeda(tarifa)})`,
-        });
-      }
+    } catch (e) {
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Error
+      ).catch(() => {});
+      setResultadoNfc({
+        tipo: "erro",
+        texto: e instanceof Error ? e.message : "Não foi possível registrar a viagem.",
+      });
     } finally {
       setProcessandoNfc(false);
     }
@@ -789,13 +732,13 @@ export default function CartoesScreen() {
             </View>
 
             <Text style={[styles.modalTitulo, { textAlign: "center" }]}>
-              Aproxime da Catraca
+              Aproxime do leitor
             </Text>
             <Text style={[styles.modalSubtitulo, { textAlign: "center" }]}>
               {cartaoNfcModal?.nome} •{" "}
               {cartaoNfcModal?.tipoPasse === "ESTUDANTE"
-                ? "Estudante (Tarifa R$ 2,50)"
-                : "Comum (Tarifa R$ 5,00)"}
+                ? "Passe estudantil"
+                : "Passe comum"}
             </Text>
 
             <View style={styles.modalSaldoDestaque}>
@@ -832,7 +775,7 @@ export default function CartoesScreen() {
                     color="#FFFFFF"
                   />
                   <Text style={styles.primaryPillButtonText}>
-                    Aproximar na Catraca
+                    Aproxime do leitor
                   </Text>
                 </>
               )}

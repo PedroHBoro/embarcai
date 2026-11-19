@@ -1,5 +1,6 @@
 import { Request, Router } from "express";
 import prisma from "../../prisma.client";
+import { ErroViagem, registrarViagemAleatoria } from "../viagens/viagem.service";
 
 export const cartoesRoutes = Router();
 
@@ -265,44 +266,26 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
 
 cartoesRoutes.post("/:cartaoId/uso-nfc", async (req, res) => {
   const cartaoId = Number(req.params.cartaoId);
+  const perfilId = obterPerfilId(req);
 
   if (!Number.isInteger(cartaoId) || cartaoId <= 0) {
     res.status(400).json({ erro: "ID do cartão inválido." });
     return;
   }
 
+  if (perfilId === null) {
+    res.status(401).json({ erro: "Sessão inválida." });
+    return;
+  }
+
   try {
-    const cartao = await prisma.cartao.findUnique({
-      where: { id: cartaoId },
-    });
-
-    if (!cartao) {
-      res.status(404).json({ erro: "Cartão não encontrado." });
-      return;
-    }
-
-    const tarifa = cartao.tipoPasse === "ESTUDANTE" ? 2.5 : 5.0;
-
-    if (cartao.saldo < tarifa) {
-      res.status(400).json({
-        erro: `Saldo insuficiente para embarque (Tarifa: R$ ${tarifa.toFixed(2).replace(".", ",")}).`,
-        saldo: cartao.saldo,
-        tarifa,
-      });
-      return;
-    }
-
-    const novoSaldo = Number((cartao.saldo - tarifa).toFixed(2));
-    const atualizado = await prisma.cartao.update({
-      where: { id: cartaoId },
-      data: { saldo: novoSaldo },
-    });
-
-    res.json({
-      ...atualizado,
-      tarifaCobrada: tarifa,
-    });
+    const viagem = await registrarViagemAleatoria(perfilId, cartaoId);
+    res.status(201).json(viagem);
   } catch (error) {
+    if (error instanceof ErroViagem) {
+      res.status(error.status).json({ erro: error.message });
+      return;
+    }
     console.error(error);
     res.status(500).json({ erro: "Erro ao processar aproximação NFC." });
   }
