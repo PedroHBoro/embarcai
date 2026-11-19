@@ -9,6 +9,7 @@ import { createCartoesStyles } from "@/styles/cartoes";
 type Viagem = {
   id: number;
   saldoGasto: number;
+  tipoDesconto: "TOTAL" | "PARCIAL" | null;
   criadoEm: string;
   cartao: {
     nome: string;
@@ -106,6 +107,10 @@ export default function ViagensScreen() {
           </Text>
         )}
         {viagensFiltradas.map((viagem) => {
+          const tipoDesconto = viagem.tipoDesconto ??
+            (viagem.cartao.tipoPasse === "ESTUDANTE"
+              ? viagem.cartao.tipoDescontoEstudante
+              : null);
           return (
           <View key={viagem.id} style={styles.viagemCard}>
             <View style={styles.viagemCabecalho}>
@@ -115,9 +120,9 @@ export default function ViagensScreen() {
             <Text style={styles.viagemDetalhe}>
               {viagem.pontoRota.rota.nome} · {viagem.pontoRota.ponto.nome}
             </Text>
-            {viagem.cartao.tipoPasse === "ESTUDANTE" && (
+            {tipoDesconto && (
               <Text style={styles.viagemDetalhe}>
-                {viagem.cartao.tipoDescontoEstudante === "TOTAL"
+                {tipoDesconto === "TOTAL"
                   ? "Desconto total aplicado"
                   : "Desconto parcial aplicado"}
               </Text>

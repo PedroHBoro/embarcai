@@ -106,15 +106,16 @@ model Cartao {
 }
 
 model Viagem {
-  id          Int        @id @default(autoincrement())
-  saldoGasto  Float
-  criadoEm    DateTime   @default(now())
-  perfilId    Int
-  perfil      Usuario    @relation(fields: [perfilId], references: [id], onDelete: Cascade)
-  cartaoId    Int
-  cartao      Cartao     @relation(fields: [cartaoId], references: [id], onDelete: Restrict)
-  pontoRotaId Int
-  pontoRota   Itinerario @relation(fields: [pontoRotaId], references: [id], onDelete: Restrict)
+  id           Int                    @id @default(autoincrement())
+  saldoGasto   Float
+  tipoDesconto TipoDescontoEstudante?
+  criadoEm     DateTime               @default(now())
+  perfilId     Int
+  perfil       Usuario                @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  cartaoId     Int
+  cartao       Cartao                 @relation(fields: [cartaoId], references: [id], onDelete: Restrict)
+  pontoRotaId  Int
+  pontoRota    Itinerario             @relation(fields: [pontoRotaId], references: [id], onDelete: Restrict)
 
   @@index([perfilId, criadoEm])
 }

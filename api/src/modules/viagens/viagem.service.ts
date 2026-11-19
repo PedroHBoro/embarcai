@@ -30,9 +30,12 @@ export async function registrarViagemAleatoria(perfilId: number, cartaoId: numbe
       if (!pontoRotasUnicos.has(chave)) pontoRotasUnicos.set(chave, itinerario);
     }
 
-    const fatorDesconto = cartao.tipoPasse === "ESTUDANTE"
-      ? cartao.tipoDescontoEstudante === "TOTAL" ? 0 : 0.5
-      : 1;
+    const tipoDesconto = cartao.tipoPasse === "ESTUDANTE"
+      ? cartao.tipoDescontoEstudante
+      : null;
+    const fatorDesconto = tipoDesconto === "TOTAL"
+      ? 0
+      : tipoDesconto === "PARCIAL" ? 0.5 : 1;
     const opcoes = [...pontoRotasUnicos.values()]
       .map((pontoRota) => ({
         pontoRota,
@@ -43,13 +46,12 @@ export async function registrarViagemAleatoria(perfilId: number, cartaoId: numbe
       )
       .map((opcao) => ({
         ...opcao,
-        saldoGasto: Math.round(opcao.valorLinha! * 100) / 100,
-      }))
-      .filter(({ saldoGasto }) => saldoGasto <= cartao.saldo);
+        saldoGasto: Math.round(opcao.valorLinha! * fatorDesconto * 100) / 100,
+      }));
 
     if (opcoes.length === 0) {
       throw new ErroViagem(
-        "Não há ponto/linha elegível com tarifa configurada e saldo suficiente para este cartão.",
+        "Não há ponto/linha elegível com tarifa configurada para este cartão.",
         409
       );
     }
@@ -58,13 +60,10 @@ export async function registrarViagemAleatoria(perfilId: number, cartaoId: numbe
     const { pontoRota, saldoGasto } = sorteado;
 
     if (saldoGasto > 0) {
-      const debito = await tx.cartao.updateMany({
-        where: { id: cartao.id, perfilId, saldo: { gte: saldoGasto } },
+      await tx.cartao.update({
+        where: { id: cartao.id },
         data: { saldo: { decrement: saldoGasto } },
       });
-      if (debito.count !== 1) {
-        throw new ErroViagem("Saldo insuficiente para embarque.", 409);
-      }
     }
 
     return tx.viagem.create({
@@ -73,6 +72,7 @@ export async function registrarViagemAleatoria(perfilId: number, cartaoId: numbe
         cartaoId: cartao.id,
         pontoRotaId: pontoRota.id,
         saldoGasto,
+        tipoDesconto,
       },
       include: {
         cartao: {

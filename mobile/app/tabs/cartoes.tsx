@@ -324,13 +324,27 @@ export default function CartoesScreen() {
   function abrirModalNfc(cartao: Cartao) {
     setNfcAtivo(true);
     setCartaoNfcId(cartao.id);
-    setResultadoNfc(null);
+    setResultadoNfc(
+      cartao.saldo < 0
+        ? {
+            tipo: "erro",
+            texto: "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente.",
+          }
+        : null
+    );
     setCartaoNfcModal(cartao);
     Haptics.selectionAsync().catch(() => {});
   }
 
   async function usarNfcNaCatraca() {
     if (!cartaoNfcModal || processandoNfc) return;
+    if (cartaoNfcModal.saldo < 0) {
+      setResultadoNfc({
+        tipo: "erro",
+        texto: "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente.",
+      });
+      return;
+    }
 
     setProcessandoNfc(true);
     setResultadoNfc(null);
@@ -362,7 +376,18 @@ export default function CartoesScreen() {
       ).catch(() => {});
       setResultadoNfc({
         tipo: "sucesso",
-        texto: `Viagem registrada: ${dados.pontoRota.rota.linha.nome} · ${dados.pontoRota.ponto.nome}. Débito: ${formatarMoeda(dados.saldoGasto)}.`,
+        texto: [
+          `Viagem registrada: ${dados.pontoRota.rota.linha.nome} · ${dados.pontoRota.ponto.nome}.`,
+          `Débito: ${formatarMoeda(dados.saldoGasto)}.`,
+          dados.tipoDesconto === "TOTAL"
+            ? "Desconto total aplicado."
+            : dados.tipoDesconto === "PARCIAL"
+              ? "Desconto parcial aplicado."
+              : null,
+          atualizado.saldo < 0
+            ? "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente."
+            : null,
+        ].filter(Boolean).join(" "),
       });
     } catch (e) {
       Haptics.notificationAsync(
@@ -751,7 +776,8 @@ export default function CartoesScreen() {
             {resultadoNfc && (
               <Text
                 style={
-                  resultadoNfc.tipo === "sucesso"
+                  resultadoNfc.tipo === "sucesso" &&
+                  !(cartaoNfcModal?.saldo !== undefined && cartaoNfcModal.saldo < 0)
                     ? styles.sucessoTexto
                     : styles.erroTexto
                 }
@@ -761,9 +787,12 @@ export default function CartoesScreen() {
             )}
 
             <Pressable
-              style={styles.primaryPillButton}
+              style={[
+                styles.primaryPillButton,
+                (processandoNfc || (cartaoNfcModal?.saldo ?? 0) < 0) && { opacity: 0.55 },
+              ]}
               onPress={usarNfcNaCatraca}
-              disabled={processandoNfc}
+              disabled={processandoNfc || (cartaoNfcModal?.saldo ?? 0) < 0}
             >
               {processandoNfc ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
