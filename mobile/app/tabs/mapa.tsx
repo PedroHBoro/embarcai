@@ -253,7 +253,10 @@ export default function AbaMapa() {
             titulo="uma linha"
             opcoes={linhas}
             selecionado={linhaSelecionada}
-            onSelecionar={selecionarLinha}
+            onSelecionar={(opcao) => {
+              const linha = linhas.find((item) => item.id === opcao.id);
+              if (linha) void selecionarLinha(linha);
+            }}
           />
         </View>
 

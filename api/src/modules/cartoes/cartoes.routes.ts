@@ -1,5 +1,6 @@
 import { Request, Router } from "express";
 import prisma from "../../prisma.client";
+import { ErroViagem, registrarViagemAleatoria } from "../viagens/viagem.service";
 
 export const cartoesRoutes = Router();
 
@@ -260,6 +261,33 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
       return;
     }
     res.status(500).json({ erro: "Erro ao atualizar cartão." });
+  }
+});
+
+cartoesRoutes.post("/:cartaoId/uso-nfc", async (req, res) => {
+  const cartaoId = Number(req.params.cartaoId);
+  const perfilId = obterPerfilId(req);
+
+  if (!Number.isInteger(cartaoId) || cartaoId <= 0) {
+    res.status(400).json({ erro: "ID do cartão inválido." });
+    return;
+  }
+
+  if (perfilId === null) {
+    res.status(401).json({ erro: "Sessão inválida." });
+    return;
+  }
+
+  try {
+    const viagem = await registrarViagemAleatoria(perfilId, cartaoId);
+    res.status(201).json(viagem);
+  } catch (error) {
+    if (error instanceof ErroViagem) {
+      res.status(error.status).json({ erro: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ erro: "Erro ao processar aproximação NFC." });
   }
 });
 

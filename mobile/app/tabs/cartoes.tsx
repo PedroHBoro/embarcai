@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Colors } from "@/styles/tab";
 import { createCartoesStyles } from "@/styles/cartoes";
 import { API_URL } from "@/constants/config";
@@ -84,6 +85,13 @@ export default function CartoesScreen() {
   const [cartaoParaRemover, setCartaoParaRemover] = useState<Cartao | null>(
     null
   );
+
+  const [cartaoNfcModal, setCartaoNfcModal] = useState<Cartao | null>(null);
+  const [processandoNfc, setProcessandoNfc] = useState(false);
+  const [resultadoNfc, setResultadoNfc] = useState<{
+    tipo: "sucesso" | "erro";
+    texto: string;
+  } | null>(null);
 
   async function carregarInstituicoes() {
     if (!API_URL) {
@@ -313,6 +321,87 @@ export default function CartoesScreen() {
     }
   }
 
+  function abrirModalNfc(cartao: Cartao) {
+    setNfcAtivo(true);
+    setCartaoNfcId(cartao.id);
+    setResultadoNfc(
+      cartao.saldo < 0
+        ? {
+            tipo: "erro",
+            texto: "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente.",
+          }
+        : null
+    );
+    setCartaoNfcModal(cartao);
+    Haptics.selectionAsync().catch(() => {});
+  }
+
+  async function usarNfcNaCatraca() {
+    if (!cartaoNfcModal || processandoNfc) return;
+    if (cartaoNfcModal.saldo < 0) {
+      setResultadoNfc({
+        tipo: "erro",
+        texto: "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente.",
+      });
+      return;
+    }
+
+    setProcessandoNfc(true);
+    setResultadoNfc(null);
+
+    try {
+      if (!API_URL) {
+        throw new Error("API não configurada; não foi possível registrar a viagem.");
+      }
+
+      const resposta = await api.post(
+        `/cartoes/${cartaoNfcModal.id}/uso-nfc`,
+        {}
+      );
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        throw new Error(dados?.erro ?? `A API respondeu HTTP ${resposta.status}.`);
+      }
+
+      const atualizado = {
+        ...cartaoNfcModal,
+        ...dados.cartao,
+      } as Cartao;
+      setCartoes((lista) =>
+        lista.map((c) => (c.id === atualizado.id ? atualizado : c))
+      );
+      setCartaoNfcModal(atualizado);
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      ).catch(() => {});
+      setResultadoNfc({
+        tipo: "sucesso",
+        texto: [
+          `Viagem registrada: ${dados.pontoRota.rota.linha.nome} · ${dados.pontoRota.ponto.nome}.`,
+          `Débito: ${formatarMoeda(dados.saldoGasto)}.`,
+          dados.tipoDesconto === "TOTAL"
+            ? "Desconto total aplicado."
+            : dados.tipoDesconto === "PARCIAL"
+              ? "Desconto parcial aplicado."
+              : null,
+          atualizado.saldo < 0
+            ? "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente."
+            : null,
+        ].filter(Boolean).join(" "),
+      });
+    } catch (e) {
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Error
+      ).catch(() => {});
+      setResultadoNfc({
+        tipo: "erro",
+        texto: e instanceof Error ? e.message : "Não foi possível registrar a viagem.",
+      });
+    } finally {
+      setProcessandoNfc(false);
+    }
+  }
+
   if (modoTela === "formulario") {
     return (
       <View style={styles.container}>
@@ -508,7 +597,7 @@ export default function CartoesScreen() {
                     styles.chipButton,
                     nfcSelecionado && styles.chipButtonAtivo,
                   ]}
-                  onPress={() => setCartaoNfcId(cartao.id)}
+                  onPress={() => abrirModalNfc(cartao)}
                 >
                   <Text
                     style={[
@@ -549,7 +638,14 @@ export default function CartoesScreen() {
           <Text style={styles.switchLabel}>Ativar NFC</Text>
           <Switch
             value={nfcAtivo}
-            onValueChange={setNfcAtivo}
+            onValueChange={(ativo) => {
+              setNfcAtivo(ativo);
+              if (ativo && cartaoNfcId === null && cartoes.length > 0) {
+                setCartaoNfcId(cartoes[0].id);
+              } else if (!ativo) {
+                setCartaoNfcId(null);
+              }
+            }}
             trackColor={{ false: "#79747E", true: "#6750A4" }}
             thumbColor="#FFFFFF"
           />
@@ -639,6 +735,86 @@ export default function CartoesScreen() {
               onPress={() => setCartaoParaRemover(null)}
             >
               <Text style={styles.secondaryPillButtonText}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={cartaoNfcModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCartaoNfcModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.nfcPulseCircle}>
+              <MaterialCommunityIcons
+                name="contactless-payment"
+                size={46}
+                color={colors.primary}
+              />
+            </View>
+
+            <Text style={[styles.modalTitulo, { textAlign: "center" }]}>
+              Aproxime do leitor
+            </Text>
+            <Text style={[styles.modalSubtitulo, { textAlign: "center" }]}>
+              {cartaoNfcModal?.nome} •{" "}
+              {cartaoNfcModal?.tipoPasse === "ESTUDANTE"
+                ? "Passe estudantil"
+                : "Passe comum"}
+            </Text>
+
+            <View style={styles.modalSaldoDestaque}>
+              <Text style={styles.modalSaldoLabel}>Saldo Disponível</Text>
+              <Text style={styles.modalSaldoValor}>
+                {formatarMoeda(cartaoNfcModal?.saldo ?? 0)}
+              </Text>
+            </View>
+
+            {resultadoNfc && (
+              <Text
+                style={
+                  resultadoNfc.tipo === "sucesso" &&
+                  !(cartaoNfcModal?.saldo !== undefined && cartaoNfcModal.saldo < 0)
+                    ? styles.sucessoTexto
+                    : styles.erroTexto
+                }
+              >
+                {resultadoNfc.texto}
+              </Text>
+            )}
+
+            <Pressable
+              style={[
+                styles.primaryPillButton,
+                (processandoNfc || (cartaoNfcModal?.saldo ?? 0) < 0) && { opacity: 0.55 },
+              ]}
+              onPress={usarNfcNaCatraca}
+              disabled={processandoNfc || (cartaoNfcModal?.saldo ?? 0) < 0}
+            >
+              {processandoNfc ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="cellphone-nfc"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.primaryPillButtonText}>
+                    Aproxime do leitor
+                  </Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={styles.secondaryPillButton}
+              onPress={() => setCartaoNfcModal(null)}
+            >
+              <Text style={styles.secondaryPillButtonText}>Fechar</Text>
             </Pressable>
           </View>
         </View>
