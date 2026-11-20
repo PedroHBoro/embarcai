@@ -60,8 +60,52 @@ Antes de iniciar, certifique-se de ter instalado na máquina:
    ```
    A API ficará disponível em `http://localhost:3000` (você pode testar o status em `http://localhost:3000/health`).
 
-### Populando dados de teste (Opcional)
+### Populando dados de teste
 Para visualizar ou inserir linhas, rotas, pontos, itinerários e saldo de cartões pelo navegador, abra um novo terminal na pasta `api` e execute:
+```bash
+npx prisma studio
+```
+
+### Populando dados de teste (Opcional)
+Para inserir um caso de teste rápido com **Municípios**, **Instituições de Ensino**, **Linhas**, **Rotas**, **Pontos** e **Itinerários**, copie e cole o comando abaixo no terminal dentro da pasta `api`:
+
+```bash
+@"
+TRUNCATE TABLE "Itinerario", "Ponto", "Rota", "Linha", "InstituicaoEnsino", "Municipio" RESTART IDENTITY CASCADE;
+
+INSERT INTO "Municipio" ("nome", "valor") VALUES
+  ('Maringá', 5.00),
+  ('Sarandi', 5.50);
+
+INSERT INTO "InstituicaoEnsino" ("nome", "municipioId") VALUES
+  ('UEM - Universidade Estadual de Maringá', 1),
+  ('UNICESUMAR', 1),
+  ('Colégio Estadual Jardim Independência', 2);
+
+INSERT INTO "Linha" ("nome", "municipioId") VALUES
+  ('021 - Av. Brasil / UEM', 1),
+  ('254 - Sarandi / Terminal Metropolitano', 2);
+
+INSERT INTO "Rota" ("nome", "linhaId") VALUES
+  ('Terminal Urbano -> UEM (Ida)', 1),
+  ('Centro Sarandi -> Terminal (Ida)', 2);
+
+INSERT INTO "Ponto" ("nome", "latitude", "longitude") VALUES
+  ('Terminal Intermodal Urbano', -23.4209, -51.9331),
+  ('Av. Herval (Esq. Av. Tamandaré)', -23.4175, -51.9355),
+  ('Portão Principal UEM (Av. Colombo)', -23.4082, -51.9388),
+  ('Praça Ipiranga (Centro Sarandi)', -23.4436, -51.8739);
+
+INSERT INTO "Itinerario" ("rotaId", "pontoId", "tipoDia", "ordem", "horario") VALUES
+  (1, 1, 'DIA_UTIL', 1, '07:00'),
+  (1, 2, 'DIA_UTIL', 2, '07:10'),
+  (1, 3, 'DIA_UTIL', 3, '07:22'),
+  (2, 4, 'DIA_UTIL', 1, '06:40'),
+  (2, 1, 'DIA_UTIL', 2, '07:15');
+"@ | npx prisma db execute --stdin
+```
+
+Para visualizar ou editar registros manualmente pelo navegador (como saldo de cartões), abra um novo terminal na pasta `api` e execute:
 ```bash
 npx prisma studio
 ```
@@ -78,7 +122,6 @@ npx prisma studio
    ```bash
    cp .env.example .env
    ```
-   *(No Windows PowerShell: `Copy-Item .env.example .env`)*
 
 3. Configure a variável `EXPO_PUBLIC_API_LOCAL` no arquivo `mobile/.env`:
    - **Se for testar pelo celular físico (Expo Go):** coloque o IPv4 da sua máquina na rede local (ex.: `EXPO_PUBLIC_API_LOCAL=http://192.168.1.7:3000`). Você pode descobrir seu IP rodando `ipconfig` (Windows) ou `ifconfig`/`ip a` (Linux/macOS).
