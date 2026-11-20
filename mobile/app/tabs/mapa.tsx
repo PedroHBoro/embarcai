@@ -10,7 +10,55 @@ import { api } from "../../constants/api";
 type Linha = {
   id: number;
   nome: string;
+  municipioId: number | null;
+  municipio?: { id: number; nome: string };
 };
+
+type Cartao = {
+  id: number;
+  nome: string;
+  numeroTccc: string;
+  tipoPasse: "NORMAL" | "ESTUDANTE";
+  instituicaoEnsino?: {
+    nome: string;
+    municipioId: number;
+    municipio?: { id: number; nome: string };
+  } | null;
+};
+
+function mascararNumeroCartao(numero: string): string {
+  const digitos = numero.replace(/\D/g, "");
+  if (digitos.length <= 4) return digitos;
+  return `${"*".repeat(digitos.length - 4)}${digitos.slice(-4)}`;
+}
+
+function mesmoMunicipio(linha: Linha, cartao: Cartao): boolean {
+  const municipioLinhaId = linha.municipioId ?? linha.municipio?.id;
+  const municipioInstituicao = cartao.instituicaoEnsino;
+  const municipioInstituicaoId =
+    municipioInstituicao?.municipioId ?? municipioInstituicao?.municipio?.id;
+
+  if (
+    municipioLinhaId != null &&
+    municipioInstituicaoId != null &&
+    municipioLinhaId === municipioInstituicaoId
+  ) {
+    return true;
+  }
+
+  const normalizar = (nome?: string) =>
+    nome?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  const nomeMunicipioLinha = normalizar(linha.municipio?.nome);
+  const nomeMunicipioInstituicao = normalizar(
+    municipioInstituicao?.municipio?.nome
+  );
+
+  return Boolean(
+    nomeMunicipioLinha &&
+      nomeMunicipioInstituicao &&
+      nomeMunicipioLinha === nomeMunicipioInstituicao
+  );
+}
 
 type Rota = {
   id: number;
@@ -49,6 +97,10 @@ export default function AbaMapa() {
   const [tipoDiaSelecionado, setTipoDiaSelecionado] = useState<TipoDia | null>(null);
   const [seletorDiaVisivel, setSeletorDiaVisivel] = useState(false);
   const [itinerarioVisivel, setItinerarioVisivel] = useState(false);
+  const [cartoesVisiveis, setCartoesVisiveis] = useState(false);
+  const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const [carregandoCartoes, setCarregandoCartoes] = useState(false);
+  const [erroCartoes, setErroCartoes] = useState<string | null>(null);
   const [avisoItinerario, setAvisoItinerario] = useState<string | null>(null);
 
   const [linhaSelecionada, setLinhaSelecionada] =
@@ -177,10 +229,23 @@ export default function AbaMapa() {
     }
   }
 
+  async function abrirCompatibilidadeCartoes() {
+    setCartoesVisiveis(true);
+    setCarregandoCartoes(true);
+    setErroCartoes(null);
+    try {
+      setCartoes(await buscar<Cartao[]>("/cartoes"));
+    } catch (e) {
+      setErroCartoes(
+        e instanceof Error ? e.message : "Não foi possível carregar os cartões."
+      );
+    } finally {
+      setCarregandoCartoes(false);
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Mapa de ônibus</Text>
-
       <View style={styles.seletores}>
         <View style={styles.seletor}>
           <Text style={styles.label}>Linha</Text>
@@ -188,7 +253,10 @@ export default function AbaMapa() {
             titulo="uma linha"
             opcoes={linhas}
             selecionado={linhaSelecionada}
-            onSelecionar={selecionarLinha}
+            onSelecionar={(opcao) => {
+              const linha = linhas.find((item) => item.id === opcao.id);
+              if (linha) void selecionarLinha(linha);
+            }}
           />
         </View>
 
@@ -239,10 +307,6 @@ export default function AbaMapa() {
         <Text style={styles.aviso}>Nenhuma linha cadastrada.</Text>
       )}
 
-      {linhaSelecionada && !rotaSelecionada && (
-        <Text style={styles.aviso}>Selecione uma rota.</Text>
-      )}
-
       {linhaSelecionada && rotaSelecionada && pontos.length > 0 && (
         <View style={styles.mapa}>
           <WebView
@@ -272,16 +336,80 @@ export default function AbaMapa() {
         </View>
       )}
 
-      {linhaSelecionada && rotaSelecionada && (
-        <Pressable
-          style={styles.botaoItinerario}
-          onPress={() => setSeletorDiaVisivel(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
-        >
-          <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
-        </Pressable>
+      {linhaSelecionada && (
+        <View style={styles.botoesRota}>
+          <Pressable
+            style={[styles.botaoCompatibilidade, styles.botaoRota]}
+            onPress={abrirCompatibilidadeCartoes}
+            accessibilityRole="button"
+            accessibilityLabel="Ver compatibilidade dos cartões com esta linha"
+          >
+            <Text style={styles.botaoItinerarioTexto}>Ver compatibilidade</Text>
+          </Pressable>
+          {rotaSelecionada && (
+            <Pressable
+              style={[styles.botaoItinerario, styles.botaoRota]}
+              onPress={() => setSeletorDiaVisivel(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver itinerário da rota ${rotaSelecionada.nome}`}
+            >
+              <Text style={styles.botaoItinerarioTexto}>Ver itinerário</Text>
+            </Pressable>
+          )}
+        </View>
       )}
+
+      <Modal
+        visible={cartoesVisiveis}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCartoesVisiveis(false)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCartao}>
+            <Text style={styles.modalTitulo}>Compatibilidade dos cartões</Text>
+            <Text style={styles.modalSubtitulo}>
+              Linha {linhaSelecionada?.nome} · {linhaSelecionada?.municipio?.nome ?? "Município não informado"}
+            </Text>
+            {carregandoCartoes && <Text style={styles.tabelaVazia}>Carregando cartões...</Text>}
+            {erroCartoes && <Text style={styles.erro}>{erroCartoes}</Text>}
+            {!carregandoCartoes && !erroCartoes && cartoes.length === 0 && (
+              <Text style={styles.tabelaVazia}>Você ainda não tem cartões cadastrados.</Text>
+            )}
+            <ScrollView style={styles.tabela}>
+              {cartoes.map((cartao) => {
+                const compativel = cartao.tipoPasse === "NORMAL" ||
+                  (linhaSelecionada !== null && mesmoMunicipio(linhaSelecionada, cartao));
+                return (
+                  <View
+                    key={cartao.id}
+                    style={[styles.cartaoCompatibilidade, compativel ? styles.cartaoCompativel : styles.cartaoIncompativel]}
+                  >
+                    <View style={styles.cartaoCompatibilidadeInfo}>
+                      <Text style={styles.nomeCartaoCompatibilidade}>
+                        {cartao.nome} - {mascararNumeroCartao(cartao.numeroTccc)}
+                      </Text>
+                      <Text style={styles.instituicaoCartaoCompatibilidade}>
+                        {cartao.tipoPasse === "NORMAL" ? "Passe comum" : cartao.instituicaoEnsino?.nome ?? "Instituição não informada"}
+                      </Text>
+                    </View>
+                    <Text style={styles.statusCompatibilidade}>
+                      {compativel ? "Compatível" : "Incompatível"}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+            <Pressable
+              style={styles.botaoFechar}
+              onPress={() => setCartoesVisiveis(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.botaoItinerarioTexto}>Fechar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={seletorDiaVisivel}

@@ -7,10 +7,28 @@ datasource db {
   provider = "postgresql"
 }
 
+model Municipio {
+  id                 Int                 @id @default(autoincrement())
+  nome               String
+  valor              Float
+  linhas             Linha[]
+  instituicoesEnsino InstituicaoEnsino[]
+}
+
+model InstituicaoEnsino {
+  id          Int       @id @default(autoincrement())
+  nome        String
+  municipioId Int
+  municipio   Municipio @relation(fields: [municipioId], references: [id])
+  cartoes     Cartao[]
+}
+
 model Linha {
-  id    Int    @id @default(autoincrement())
-  nome  String
-  rotas Rota[]
+  id          Int        @id @default(autoincrement())
+  nome        String
+  municipioId Int?
+  municipio   Municipio? @relation(fields: [municipioId], references: [id])
+  rotas       Rota[]
 }
 
 model Rota {
@@ -30,14 +48,15 @@ model Ponto {
 }
 
 model Itinerario {
-  id      Int     @id @default(autoincrement())
+  id      Int      @id @default(autoincrement())
   rotaId  Int
-  rota    Rota    @relation(fields: [rotaId], references: [id], onDelete: Cascade)
+  rota    Rota     @relation(fields: [rotaId], references: [id], onDelete: Cascade)
   pontoId Int
-  ponto   Ponto   @relation(fields: [pontoId], references: [id], onDelete: Cascade)
-  tipoDia TipoDia @default(DIA_UTIL)
+  ponto   Ponto    @relation(fields: [pontoId], references: [id], onDelete: Cascade)
+  tipoDia TipoDia  @default(DIA_UTIL)
   ordem   Int
   horario String
+  viagens Viagem[]
 
   @@unique([rotaId, tipoDia, ordem])
   @@index([rotaId, tipoDia])
@@ -58,6 +77,7 @@ model Usuario {
   telefone String   @db.Char(11)
   senha    String   @db.Char(60)
   cartoes  Cartao[]
+  viagens  Viagem[]
 }
 
 enum TipoPasse {
@@ -65,14 +85,37 @@ enum TipoPasse {
   ESTUDANTE
 }
 
+enum TipoDescontoEstudante {
+  TOTAL
+  PARCIAL
+}
+
 model Cartao {
-  id                    Int       @id @default(autoincrement())
+  id                    Int                   @id @default(autoincrement())
   nome                  String
-  numeroTccc            String    @unique
-  saldo                 Float     @default(0)
+  numeroTccc            String                @unique
+  saldo                 Float                 @default(0)
   perfilId              Int?
-  perfil                Usuario?  @relation(fields: [perfilId], references: [id])
-  tipoPasse             TipoPasse @default(NORMAL)
-  instituicaoEnsino     String?
+  perfil                Usuario?              @relation(fields: [perfilId], references: [id])
+  tipoPasse             TipoPasse             @default(NORMAL)
+  tipoDescontoEstudante TipoDescontoEstudante @default(TOTAL)
+  idInstituicaoEnsino   Int?
+  instituicaoEnsino     InstituicaoEnsino?    @relation(fields: [idInstituicaoEnsino], references: [id])
   comprovanteResidencia String?
+  viagens               Viagem[]
+}
+
+model Viagem {
+  id           Int                    @id @default(autoincrement())
+  saldoGasto   Float
+  tipoDesconto TipoDescontoEstudante?
+  criadoEm     DateTime               @default(now())
+  perfilId     Int
+  perfil       Usuario                @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  cartaoId     Int
+  cartao       Cartao                 @relation(fields: [cartaoId], references: [id], onDelete: Restrict)
+  pontoRotaId  Int
+  pontoRota    Itinerario             @relation(fields: [pontoRotaId], references: [id], onDelete: Restrict)
+
+  @@index([perfilId, criadoEm])
 }

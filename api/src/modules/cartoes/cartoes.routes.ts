@@ -1,5 +1,6 @@
 import { Request, Router } from "express";
 import prisma from "../../prisma.client";
+import { ErroViagem, registrarViagemAleatoria } from "../viagens/viagem.service";
 
 export const cartoesRoutes = Router();
 
@@ -17,6 +18,9 @@ cartoesRoutes.get("/", async (req, res) => {
     const cartoes = await prisma.cartao.findMany({
       where: perfilId !== null ? { perfilId } : undefined,
       orderBy: { id: "asc" },
+      include: {
+        instituicaoEnsino: { include: { municipio: true } },
+      },
     });
 
     res.json(cartoes);
@@ -90,8 +94,9 @@ cartoesRoutes.post("/", async (req, res) => {
     numeroTccc,
     saldo,
     tipoPasse,
-    instituicaoEnsino,
+    idInstituicaoEnsino,
     comprovanteResidencia,
+    tipoDescontoEstudante,
   } = req.body;
 
   if (!nome || typeof nome !== "string" || !nome.trim()) {
@@ -121,10 +126,13 @@ cartoesRoutes.post("/", async (req, res) => {
 
   if (
     tipoPasse === "ESTUDANTE" &&
-    (!instituicaoEnsino?.trim() || !comprovanteResidencia?.trim())
+    (!Number.isInteger(Number(idInstituicaoEnsino)) ||
+      Number(idInstituicaoEnsino) <= 0 ||
+      !comprovanteResidencia?.trim() ||
+      !["TOTAL", "PARCIAL"].includes(tipoDescontoEstudante))
   ) {
     res.status(400).json({
-      erro: "Instituição de ensino e comprovante de residência são obrigatórios para passe estudantil.",
+      erro: "Selecione a instituição, o tipo de desconto e informe o comprovante de residência para passe estudantil.",
     });
     return;
   }
@@ -140,10 +148,15 @@ cartoesRoutes.post("/", async (req, res) => {
             ? perfilId
             : null,
         tipoPasse,
-        instituicaoEnsino:
-          tipoPasse === "ESTUDANTE" ? instituicaoEnsino.trim() : null,
+        tipoDescontoEstudante:
+          tipoPasse === "ESTUDANTE" ? tipoDescontoEstudante : "TOTAL",
+        idInstituicaoEnsino:
+          tipoPasse === "ESTUDANTE" ? Number(idInstituicaoEnsino) : null,
         comprovanteResidencia:
           tipoPasse === "ESTUDANTE" ? comprovanteResidencia.trim() : null,
+      },
+      include: {
+        instituicaoEnsino: { include: { municipio: true } },
       },
     });
 
@@ -172,8 +185,9 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
     nome,
     numeroTccc,
     tipoPasse,
-    instituicaoEnsino,
+    idInstituicaoEnsino,
     comprovanteResidencia,
+    tipoDescontoEstudante,
   } = req.body;
 
   if (!nome || typeof nome !== "string" || !nome.trim()) {
@@ -203,10 +217,13 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
 
   if (
     tipoPasse === "ESTUDANTE" &&
-    (!instituicaoEnsino?.trim() || !comprovanteResidencia?.trim())
+    (!Number.isInteger(Number(idInstituicaoEnsino)) ||
+      Number(idInstituicaoEnsino) <= 0 ||
+      !comprovanteResidencia?.trim() ||
+      !["TOTAL", "PARCIAL"].includes(tipoDescontoEstudante))
   ) {
     res.status(400).json({
-      erro: "Instituição de ensino e comprovante de residência são obrigatórios para passe estudantil.",
+      erro: "Selecione a instituição, o tipo de desconto e informe o comprovante de residência para passe estudantil.",
     });
     return;
   }
@@ -218,10 +235,15 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
         nome: nome.trim(),
         numeroTccc: numeroLimpo,
         tipoPasse,
-        instituicaoEnsino:
-          tipoPasse === "ESTUDANTE" ? instituicaoEnsino.trim() : null,
+        tipoDescontoEstudante:
+          tipoPasse === "ESTUDANTE" ? tipoDescontoEstudante : "TOTAL",
+        idInstituicaoEnsino:
+          tipoPasse === "ESTUDANTE" ? Number(idInstituicaoEnsino) : null,
         comprovanteResidencia:
           tipoPasse === "ESTUDANTE" ? comprovanteResidencia.trim() : null,
+      },
+      include: {
+        instituicaoEnsino: { include: { municipio: true } },
       },
     });
 
@@ -239,6 +261,33 @@ cartoesRoutes.put("/:cartaoId", async (req, res) => {
       return;
     }
     res.status(500).json({ erro: "Erro ao atualizar cartão." });
+  }
+});
+
+cartoesRoutes.post("/:cartaoId/uso-nfc", async (req, res) => {
+  const cartaoId = Number(req.params.cartaoId);
+  const perfilId = obterPerfilId(req);
+
+  if (!Number.isInteger(cartaoId) || cartaoId <= 0) {
+    res.status(400).json({ erro: "ID do cartão inválido." });
+    return;
+  }
+
+  if (perfilId === null) {
+    res.status(401).json({ erro: "Sessão inválida." });
+    return;
+  }
+
+  try {
+    const viagem = await registrarViagemAleatoria(perfilId, cartaoId);
+    res.status(201).json(viagem);
+  } catch (error) {
+    if (error instanceof ErroViagem) {
+      res.status(error.status).json({ erro: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ erro: "Erro ao processar aproximação NFC." });
   }
 });
 

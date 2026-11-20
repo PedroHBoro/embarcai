@@ -11,12 +11,21 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Colors } from "@/styles/tab";
 import { createCartoesStyles } from "@/styles/cartoes";
 import { API_URL } from "@/constants/config";
 import { api } from "@/constants/api";
+import ListaFiltrada from "@/components/ListaFiltrada";
 
 export type TipoPasse = "NORMAL" | "ESTUDANTE";
+export type TipoDescontoEstudante = "TOTAL" | "PARCIAL";
+
+type InstituicaoEnsino = {
+  id: number;
+  nome: string;
+  municipioId: number;
+};
 
 export type Cartao = {
   id: number;
@@ -25,7 +34,9 @@ export type Cartao = {
   saldo: number;
   perfilId?: number | null;
   tipoPasse: TipoPasse;
-  instituicaoEnsino?: string | null;
+  idInstituicaoEnsino?: number | null;
+  tipoDescontoEstudante: TipoDescontoEstudante;
+  instituicaoEnsino?: (InstituicaoEnsino & { municipio?: { id: number; nome: string } }) | null;
   comprovanteResidencia?: string | null;
 };
 
@@ -49,8 +60,10 @@ export default function CartoesScreen() {
   const styles = createCartoesStyles(colors);
 
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
+  const [instituicoes, setInstituicoes] = useState<InstituicaoEnsino[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [erroInstituicoes, setErroInstituicoes] = useState<string | null>(null);
 
   const [modoTela, setModoTela] = useState<"lista" | "formulario">("lista");
   const [cartaoEditando, setCartaoEditando] = useState<Cartao | null>(null);
@@ -61,7 +74,8 @@ export default function CartoesScreen() {
   const [nome, setNome] = useState("");
   const [numero, setNumero] = useState("");
   const [passeEstudantil, setPasseEstudantil] = useState(false);
-  const [instituicaoEnsino, setInstituicaoEnsino] = useState("");
+  const [instituicaoSelecionada, setInstituicaoSelecionada] = useState<InstituicaoEnsino | null>(null);
+  const [tipoDescontoEstudante, setTipoDescontoEstudante] = useState<TipoDescontoEstudante>("TOTAL");
   const [comprovanteResidencia, setComprovanteResidencia] = useState("");
   const [erroFormulario, setErroFormulario] = useState<string | null>(null);
 
@@ -72,46 +86,90 @@ export default function CartoesScreen() {
     null
   );
 
+  const [cartaoNfcModal, setCartaoNfcModal] = useState<Cartao | null>(null);
+  const [processandoNfc, setProcessandoNfc] = useState(false);
+  const [resultadoNfc, setResultadoNfc] = useState<{
+    tipo: "sucesso" | "erro";
+    texto: string;
+  } | null>(null);
+
+  async function carregarInstituicoes() {
+    if (!API_URL) {
+      setErroInstituicoes("API não configurada.");
+      return;
+    }
+
+    try {
+      const resposta = await api.get("/instituicoes-ensino");
+      if (!resposta.ok) {
+        if (resposta.status === 401) {
+          throw new Error("Sessão ausente ou expirada. Entre novamente na sua conta.");
+        }
+        throw new Error(`A API respondeu HTTP ${resposta.status} ao buscar instituições.`);
+      }
+      setInstituicoes((await resposta.json()) as InstituicaoEnsino[]);
+      setErroInstituicoes(null);
+    } catch (e) {
+      setErroInstituicoes(e instanceof Error ? e.message : "Falha ao carregar instituições.");
+    }
+  }
+
   useEffect(() => {
     async function carregarCartoes() {
-      if (!API_URL) return;
+      if (!API_URL) {
+        setErro("API não configurada. Verifique EXPO_PUBLIC_API_LOCAL.");
+        return;
+      }
       setCarregando(true);
       setErro(null);
 
       try {
         const resposta = await api.get("/cartoes");
         if (!resposta.ok) {
-          throw new Error(`Erro HTTP ${resposta.status}`);
+          const body = await resposta.json().catch(() => null);
+          if (resposta.status === 401) {
+            throw new Error("Sessão ausente ou expirada. Entre novamente na sua conta.");
+          }
+          throw new Error(body?.erro ?? `A API respondeu HTTP ${resposta.status}.`);
         }
         const dados = (await resposta.json()) as Cartao[];
         setCartoes(dados);
-      } catch {
-
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Falha de conexão ao carregar seus cartões.");
       } finally {
         setCarregando(false);
       }
     }
 
     carregarCartoes();
+    carregarInstituicoes();
   }, []);
 
   function abrirCadastro() {
+    void carregarInstituicoes();
     setCartaoEditando(null);
     setNome("");
     setNumero("");
     setPasseEstudantil(false);
-    setInstituicaoEnsino("");
+    setInstituicaoSelecionada(null);
+    setTipoDescontoEstudante("TOTAL");
     setComprovanteResidencia("");
     setErroFormulario(null);
     setModoTela("formulario");
   }
 
   function abrirEdicao(cartao: Cartao) {
+    void carregarInstituicoes();
     setCartaoEditando(cartao);
     setNome(cartao.nome);
     setNumero(cartao.numeroTccc);
     setPasseEstudantil(cartao.tipoPasse === "ESTUDANTE");
-    setInstituicaoEnsino(cartao.instituicaoEnsino ?? "");
+    setInstituicaoSelecionada(
+      instituicoes.find((item) => item.id === cartao.idInstituicaoEnsino) ??
+        cartao.instituicaoEnsino ??
+        null
+    );
+    setTipoDescontoEstudante(cartao.tipoDescontoEstudante ?? "TOTAL");
     setComprovanteResidencia(cartao.comprovanteResidencia ?? "");
     setErroFormulario(null);
     setModoTela("formulario");
@@ -148,7 +206,7 @@ export default function CartoesScreen() {
 
     if (
       passeEstudantil &&
-      (!instituicaoEnsino.trim() || !comprovanteResidencia.trim())
+      (!instituicaoSelecionada || !comprovanteResidencia.trim())
     ) {
       setErroFormulario(
         "Preencha a Instituição de Ensino e o Comprovante de residência."
@@ -158,11 +216,17 @@ export default function CartoesScreen() {
 
     setErroFormulario(null);
 
+    if (!API_URL) {
+      setErroFormulario("A API não está configurada; o cartão não foi salvo.");
+      return;
+    }
+
     const payload = {
       nome: nome.trim(),
       numeroTccc: numeroLimpo,
       tipoPasse: (passeEstudantil ? "ESTUDANTE" : "NORMAL") as TipoPasse,
-      instituicaoEnsino: passeEstudantil ? instituicaoEnsino.trim() : null,
+      idInstituicaoEnsino: passeEstudantil ? instituicaoSelecionada?.id : null,
+      tipoDescontoEstudante: passeEstudantil ? tipoDescontoEstudante : "TOTAL",
       comprovanteResidencia: passeEstudantil
         ? comprovanteResidencia.trim()
         : null,
@@ -170,64 +234,37 @@ export default function CartoesScreen() {
 
     if (cartaoEditando) {
       try {
-        if (API_URL) {
-          const resposta = await api.put(
-            `/cartoes/${cartaoEditando.id}`,
-            payload
-          );
-          if (resposta.status === 409 || resposta.status === 400) {
-            const body = await resposta.json();
-            setErroFormulario(body.erro ?? "Erro ao validar dados do cartão.");
-            return;
-          }
-          if (resposta.ok) {
-            const atualizado = (await resposta.json()) as Cartao;
-            setCartoes((lista) =>
-              lista.map((c) => (c.id === atualizado.id ? atualizado : c))
-            );
-            setModoTela("lista");
-            return;
-          }
+        const resposta = await api.put(
+          `/cartoes/${cartaoEditando.id}`,
+          payload
+        );
+        const body = resposta.ok ? null : await resposta.json().catch(() => null);
+        if (!resposta.ok) {
+          setErroFormulario(body?.erro ?? `Não foi possível salvar o cartão (HTTP ${resposta.status}).`);
+          return;
         }
-      } catch {
-
+        const atualizado = (await resposta.json()) as Cartao;
+        setCartoes((lista) =>
+          lista.map((c) => (c.id === atualizado.id ? atualizado : c))
+        );
+        setModoTela("lista");
+      } catch (e) {
+        setErroFormulario(e instanceof Error ? e.message : "Falha de conexão ao salvar o cartão.");
       }
-
-      setCartoes((lista) =>
-        lista.map((c) =>
-          c.id === cartaoEditando.id ? { ...c, ...payload } : c
-        )
-      );
-      setModoTela("lista");
     } else {
       try {
-        if (API_URL) {
-          const resposta = await api.post("/cartoes", { ...payload, saldo: 0 });
-          if (resposta.status === 409 || resposta.status === 400) {
-            const body = await resposta.json();
-            setErroFormulario(body.erro ?? "Erro ao validar dados do cartão.");
-            return;
-          }
-          if (resposta.ok) {
-            const criado = (await resposta.json()) as Cartao;
-            setCartoes((lista) => [...lista, criado]);
-            setModoTela("lista");
-            return;
-          }
+        const resposta = await api.post("/cartoes", { ...payload, saldo: 0 });
+        const body = resposta.ok ? null : await resposta.json().catch(() => null);
+        if (!resposta.ok) {
+          setErroFormulario(body?.erro ?? `Não foi possível cadastrar o cartão (HTTP ${resposta.status}).`);
+          return;
         }
-      } catch {
-
+        const criado = (await resposta.json()) as Cartao;
+        setCartoes((lista) => [...lista, criado]);
+        setModoTela("lista");
+      } catch (e) {
+        setErroFormulario(e instanceof Error ? e.message : "Falha de conexão ao cadastrar o cartão.");
       }
-
-      const novoId =
-        cartoes.length > 0 ? Math.max(...cartoes.map((c) => c.id)) + 1 : 1;
-      const novoCartao: Cartao = {
-        id: novoId,
-        saldo: 0,
-        ...payload,
-      };
-      setCartoes((lista) => [...lista, novoCartao]);
-      setModoTela("lista");
     }
   }
 
@@ -236,11 +273,14 @@ export default function CartoesScreen() {
     const id = cartaoParaRemover.id;
 
     try {
-      if (API_URL) {
-        await api.delete(`/cartoes/${id}`);
+      const resposta = await api.delete(`/cartoes/${id}`);
+      if (!resposta.ok) {
+        setErro(`Não foi possível remover o cartão (HTTP ${resposta.status}).`);
+        return;
       }
-    } catch {
- 
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha de conexão ao remover o cartão.");
+      return;
     }
 
     setCartoes((lista) => lista.filter((c) => c.id !== id));
@@ -278,6 +318,87 @@ export default function CartoesScreen() {
 
     } finally {
       setConsultandoSaldo(false);
+    }
+  }
+
+  function abrirModalNfc(cartao: Cartao) {
+    setNfcAtivo(true);
+    setCartaoNfcId(cartao.id);
+    setResultadoNfc(
+      cartao.saldo < 0
+        ? {
+            tipo: "erro",
+            texto: "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente.",
+          }
+        : null
+    );
+    setCartaoNfcModal(cartao);
+    Haptics.selectionAsync().catch(() => {});
+  }
+
+  async function usarNfcNaCatraca() {
+    if (!cartaoNfcModal || processandoNfc) return;
+    if (cartaoNfcModal.saldo < 0) {
+      setResultadoNfc({
+        tipo: "erro",
+        texto: "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente.",
+      });
+      return;
+    }
+
+    setProcessandoNfc(true);
+    setResultadoNfc(null);
+
+    try {
+      if (!API_URL) {
+        throw new Error("API não configurada; não foi possível registrar a viagem.");
+      }
+
+      const resposta = await api.post(
+        `/cartoes/${cartaoNfcModal.id}/uso-nfc`,
+        {}
+      );
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        throw new Error(dados?.erro ?? `A API respondeu HTTP ${resposta.status}.`);
+      }
+
+      const atualizado = {
+        ...cartaoNfcModal,
+        ...dados.cartao,
+      } as Cartao;
+      setCartoes((lista) =>
+        lista.map((c) => (c.id === atualizado.id ? atualizado : c))
+      );
+      setCartaoNfcModal(atualizado);
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      ).catch(() => {});
+      setResultadoNfc({
+        tipo: "sucesso",
+        texto: [
+          `Viagem registrada: ${dados.pontoRota.rota.linha.nome} · ${dados.pontoRota.ponto.nome}.`,
+          `Débito: ${formatarMoeda(dados.saldoGasto)}.`,
+          dados.tipoDesconto === "TOTAL"
+            ? "Desconto total aplicado."
+            : dados.tipoDesconto === "PARCIAL"
+              ? "Desconto parcial aplicado."
+              : null,
+          atualizado.saldo < 0
+            ? "Cartão sem saldo suficiente. Regularize o saldo antes de aproximar novamente."
+            : null,
+        ].filter(Boolean).join(" "),
+      });
+    } catch (e) {
+      Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Error
+      ).catch(() => {});
+      setResultadoNfc({
+        tipo: "erro",
+        texto: e instanceof Error ? e.message : "Não foi possível registrar a viagem.",
+      });
+    } finally {
+      setProcessandoNfc(false);
     }
   }
 
@@ -329,7 +450,10 @@ export default function CartoesScreen() {
             </Text>
             <Switch
               value={passeEstudantil}
-              onValueChange={setPasseEstudantil}
+              onValueChange={(ativo) => {
+                setPasseEstudantil(ativo);
+                if (ativo) void carregarInstituicoes();
+              }}
               trackColor={{ false: "#79747E", true: "#6750A4" }}
               thumbColor="#FFFFFF"
             />
@@ -337,14 +461,34 @@ export default function CartoesScreen() {
 
           {passeEstudantil && (
             <>
-              <View style={styles.inputWrapper}>
+              <View style={{ marginBottom: 18 }}>
                 <Text style={styles.inputLabel}>Instituição de Ensino</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="UEM"
-                  placeholderTextColor={colors.textSecondary}
-                  value={instituicaoEnsino}
-                  onChangeText={setInstituicaoEnsino}
+                <ListaFiltrada
+                  titulo="uma instituição"
+                  opcoes={instituicoes}
+                  selecionado={instituicaoSelecionada}
+                  onSelecionar={(opcao) =>
+                    setInstituicaoSelecionada(
+                      instituicoes.find((item) => item.id === opcao.id) ?? null
+                    )
+                  }
+                />
+                {erroInstituicoes && (
+                  <Text style={styles.erroTexto}>{erroInstituicoes}</Text>
+                )}
+              </View>
+
+              <View style={styles.switchCard}>
+                <Text style={styles.switchLabel}>
+                  Desconto total
+                </Text>
+                <Switch
+                  value={tipoDescontoEstudante === "TOTAL"}
+                  onValueChange={(ativo) =>
+                    setTipoDescontoEstudante(ativo ? "TOTAL" : "PARCIAL")
+                  }
+                  trackColor={{ false: "#79747E", true: "#6750A4" }}
+                  thumbColor="#FFFFFF"
                 />
               </View>
 
@@ -443,7 +587,7 @@ export default function CartoesScreen() {
 
               {cartao.tipoPasse === "ESTUDANTE" && cartao.instituicaoEnsino && (
                 <Text style={styles.cartaoInfoEstudante}>
-                  Instituição: {cartao.instituicaoEnsino}
+                  Instituição: {cartao.instituicaoEnsino.nome} · Desconto {cartao.tipoDescontoEstudante === "TOTAL" ? "integral" : "parcial"}
                 </Text>
               )}
 
@@ -453,7 +597,7 @@ export default function CartoesScreen() {
                     styles.chipButton,
                     nfcSelecionado && styles.chipButtonAtivo,
                   ]}
-                  onPress={() => setCartaoNfcId(cartao.id)}
+                  onPress={() => abrirModalNfc(cartao)}
                 >
                   <Text
                     style={[
@@ -494,7 +638,14 @@ export default function CartoesScreen() {
           <Text style={styles.switchLabel}>Ativar NFC</Text>
           <Switch
             value={nfcAtivo}
-            onValueChange={setNfcAtivo}
+            onValueChange={(ativo) => {
+              setNfcAtivo(ativo);
+              if (ativo && cartaoNfcId === null && cartoes.length > 0) {
+                setCartaoNfcId(cartoes[0].id);
+              } else if (!ativo) {
+                setCartaoNfcId(null);
+              }
+            }}
             trackColor={{ false: "#79747E", true: "#6750A4" }}
             thumbColor="#FFFFFF"
           />
@@ -584,6 +735,86 @@ export default function CartoesScreen() {
               onPress={() => setCartaoParaRemover(null)}
             >
               <Text style={styles.secondaryPillButtonText}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={cartaoNfcModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCartaoNfcModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.nfcPulseCircle}>
+              <MaterialCommunityIcons
+                name="contactless-payment"
+                size={46}
+                color={colors.primary}
+              />
+            </View>
+
+            <Text style={[styles.modalTitulo, { textAlign: "center" }]}>
+              Aproxime do leitor
+            </Text>
+            <Text style={[styles.modalSubtitulo, { textAlign: "center" }]}>
+              {cartaoNfcModal?.nome} •{" "}
+              {cartaoNfcModal?.tipoPasse === "ESTUDANTE"
+                ? "Passe estudantil"
+                : "Passe comum"}
+            </Text>
+
+            <View style={styles.modalSaldoDestaque}>
+              <Text style={styles.modalSaldoLabel}>Saldo Disponível</Text>
+              <Text style={styles.modalSaldoValor}>
+                {formatarMoeda(cartaoNfcModal?.saldo ?? 0)}
+              </Text>
+            </View>
+
+            {resultadoNfc && (
+              <Text
+                style={
+                  resultadoNfc.tipo === "sucesso" &&
+                  !(cartaoNfcModal?.saldo !== undefined && cartaoNfcModal.saldo < 0)
+                    ? styles.sucessoTexto
+                    : styles.erroTexto
+                }
+              >
+                {resultadoNfc.texto}
+              </Text>
+            )}
+
+            <Pressable
+              style={[
+                styles.primaryPillButton,
+                (processandoNfc || (cartaoNfcModal?.saldo ?? 0) < 0) && { opacity: 0.55 },
+              ]}
+              onPress={usarNfcNaCatraca}
+              disabled={processandoNfc || (cartaoNfcModal?.saldo ?? 0) < 0}
+            >
+              {processandoNfc ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons
+                    name="cellphone-nfc"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.primaryPillButtonText}>
+                    Aproxime do leitor
+                  </Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={styles.secondaryPillButton}
+              onPress={() => setCartaoNfcModal(null)}
+            >
+              <Text style={styles.secondaryPillButtonText}>Fechar</Text>
             </Pressable>
           </View>
         </View>
