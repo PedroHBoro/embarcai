@@ -7,6 +7,7 @@ import { cartoesRoutes } from "./cartoes/cartoes.routes";
 import { authRoutes } from "./auth/auth.routes";
 import { instituicoesEnsinoRoutes } from "./instituicoes-ensino/instituicoes-ensino.routes";
 import { viagensRoutes } from "./viagens/viagens.routes";
+import { usuariosRoutes } from "./usuarios/usuarios.routes";
 
 const publicas = Router();
 publicas.use("/health", healthRoutes);
@@ -19,6 +20,7 @@ autenticadas.use("/rotas", rotasRoutes);
 autenticadas.use("/cartoes", cartoesRoutes);
 autenticadas.use("/instituicoes-ensino", instituicoesEnsinoRoutes);
 autenticadas.use("/viagens", viagensRoutes);
+autenticadas.use("/usuarios", usuariosRoutes);
 
 export const routes = Router();
 routes.use(publicas);

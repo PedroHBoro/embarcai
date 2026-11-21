@@ -6,6 +6,7 @@ import { sign } from "../../utils/jwt.util";
 export const authRoutes = Router();
 
 const ONZE_DIGITOS = /^\d{11}$/;
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function respostaUsuario(usuario: { id: number; nome: string; email: string }) {
   return {
@@ -19,34 +20,29 @@ function respostaUsuario(usuario: { id: number; nome: string; email: string }) {
 }
 
 authRoutes.post("/cadastro", async (req, res) => {
-  const nome = typeof req.body.nome === "string" ? req.body.nome.trim() : "";
-  const cpf = typeof req.body.cpf === "string" ? req.body.cpf : "";
-  const email =
-    typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
-  const telefone = typeof req.body.telefone === "string" ? req.body.telefone : "";
-  const senha = typeof req.body.senha === "string" ? req.body.senha : "";
+  const { nome, cpf, email, telefone, senha } = req.body;
 
-  if (!nome) {
+  if (typeof nome !== "string" || nome.trim().length === 0) {
     res.status(400).json({ erro: "O nome é obrigatório." });
     return;
   }
 
-  if (!ONZE_DIGITOS.test(cpf)) {
+  if (typeof cpf !== "string" || !ONZE_DIGITOS.test(cpf)) {
     res.status(400).json({ erro: "O CPF deve ter exatamente 11 dígitos." });
     return;
   }
 
-  if (!email) {
-    res.status(400).json({ erro: "O email é obrigatório." });
+  if (typeof email !== "string" || !EMAIL_VALIDO.test(email)) {
+    res.status(400).json({ erro: "O email deve ser válido." });
     return;
   }
 
-  if (!ONZE_DIGITOS.test(telefone)) {
+  if (typeof telefone !== "string" || !ONZE_DIGITOS.test(telefone)) {
     res.status(400).json({ erro: "O telefone deve ter exatamente 11 dígitos." });
     return;
   }
 
-  if (senha.length < 8) {
+  if (typeof senha !== "string" || senha.length < 8) {
     res.status(400).json({ erro: "A senha deve ter no mínimo 8 caracteres." });
     return;
   }

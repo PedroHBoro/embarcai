@@ -42,6 +42,14 @@ class Api {
     });
   }
 
+  patch(caminho: string, body: unknown) {
+    return this.request(caminho, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
   delete(caminho: string) {
     return this.request(caminho, { method: "DELETE" });
   }
