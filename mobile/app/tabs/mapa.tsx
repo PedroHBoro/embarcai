@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, useColorScheme, Pressable, Modal, ScrollView } from "react-native";
+import { View, Text, useColorScheme, Pressable, Modal, ScrollView, Platform } from "react-native";
 import { WebView } from "react-native-webview";
 import ListaFiltrada from "../../components/ListaFiltrada";
 import { Colors } from "@/styles/tab";
@@ -112,6 +112,11 @@ export default function AbaMapa() {
 
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  const pontoMapa = pontoSelecionado ?? pontos[0];
+  const urlMapa = pontoMapa
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${pontoMapa.longitude - 0.005},${pontoMapa.latitude - 0.005},${pontoMapa.longitude + 0.005},${pontoMapa.latitude + 0.005}&layer=mapnik&marker=${pontoMapa.latitude},${pontoMapa.longitude}`
+    : null;
 
   async function buscar<T>(endpoint: string): Promise<T> {
     const resposta = await api.get(endpoint);
@@ -307,32 +312,27 @@ export default function AbaMapa() {
         <Text style={styles.aviso}>Nenhuma linha cadastrada.</Text>
       )}
 
-      {linhaSelecionada && rotaSelecionada && pontos.length > 0 && (
+      {linhaSelecionada && rotaSelecionada && pontos.length > 0 && urlMapa && (
         <View style={styles.mapa}>
-          <WebView
-            key={pontoSelecionado?.id ?? pontos[0].id}
-            source={{
-              uri: `https://www.openstreetmap.org/export/embed.html?bbox=${
-                pontoSelecionado
-                  ? `${pontoSelecionado.longitude - 0.005},${pontoSelecionado.latitude - 0.005},${pontoSelecionado.longitude + 0.005},${pontoSelecionado.latitude + 0.005}`
-                  : `${pontos[0].longitude - 0.005},${pontos[0].latitude - 0.005},${pontos[0].longitude + 0.005},${pontos[0].latitude + 0.005}`
-              }&layer=mapnik&marker=${
-                pontoSelecionado
-                  ? `${pontoSelecionado.latitude},${pontoSelecionado.longitude}`
-                  : `${pontos[0].latitude},${pontos[0].longitude}`
-              }`,
-            }}
-            style={{
-              width: "100%",
-              height: 400,
-              flex: 1,
-            }}
-            javaScriptEnabled
-            domStorageEnabled
-            onError={(event) =>
-              console.log("Erro no mapa:", event.nativeEvent)
-            }
-          />
+          {Platform.OS === "web" ? (
+            <iframe
+              key={pontoMapa.id}
+              title={`Mapa do ponto ${pontoMapa.nome}`}
+              src={urlMapa}
+              style={{ width: "100%", height: 400, flex: 1, border: 0 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          ) : (
+            <WebView
+              key={pontoMapa.id}
+              source={{ uri: urlMapa }}
+              style={{ width: "100%", height: 400, flex: 1 }}
+              javaScriptEnabled
+              domStorageEnabled
+              onError={(event) => console.log("Erro no mapa:", event.nativeEvent)}
+            />
+          )}
         </View>
       )}
 
