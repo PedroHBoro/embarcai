@@ -96,6 +96,12 @@ export const createCartoesStyles = (colors: ThemeColors) => {
     },
 
     // Botões de ação dentro do card (NFC / Consultar Saldo / Atualizar Cadastro / Remover)
+    recargaValores: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 12,
+    },
     cartaoActions: {
       flexDirection: "row",
       justifyContent: "flex-end",
@@ -294,6 +300,13 @@ export const createCartoesStyles = (colors: ThemeColors) => {
       marginTop: 10,
       marginBottom: 6,
       textAlign: "center",
+    },
+    avisoRecargaTexto: {
+      textAlign: "center",
+      color: colors.primary,
+      fontSize: 15,
+      marginBottom: 12,
+      fontWeight: "600",
     },
     avisoTexto: {
       textAlign: "center",
