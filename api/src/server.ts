@@ -5,9 +5,7 @@ import cors from "cors";
 
 const server: Express = express();
 server.use(cors());
-
-server.use(express.json())
-server.use(routes)
+server.use(routes);
 
 const PORT = process.env.PORT
 server.listen(PORT, () => {

@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
 import { Colors } from "@/styles/tab";
 import { createCartoesStyles } from "@/styles/cartoes";
 import { API_URL } from "@/constants/config";
@@ -41,6 +42,27 @@ export type Cartao = {
 };
 
 const FORMATO_NUMERO_CARTAO = /^\d{8,10}$/;
+const VALORES_RECARGA = [
+  { centavos: 1000, rotulo: "R$ 10,00" },
+  { centavos: 2000, rotulo: "R$ 20,00" },
+  { centavos: 5000, rotulo: "R$ 50,00" },
+];
+
+function centavosDoTexto(texto: string): number | null {
+  const limpo = texto.trim().replace(/\s/g, "").replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(limpo)) {
+    return null;
+  }
+  const centavos = Math.round(Number(limpo) * 100);
+  if (centavos < 500 || centavos > 20000) {
+    return null;
+  }
+  return centavos;
+}
+
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function formatarNumeroMascarado(numero: string): string {
   const limpo = numero.replace(/\s+/g, "");
@@ -88,6 +110,16 @@ export default function CartoesScreen() {
 
   const [cartaoNfcModal, setCartaoNfcModal] = useState<Cartao | null>(null);
   const [processandoNfc, setProcessandoNfc] = useState(false);
+  const [cartaoRecarga, setCartaoRecarga] = useState<Cartao | null>(null);
+  const [valorRecargaCentavos, setValorRecargaCentavos] = useState<number | null>(1000);
+  const [valorRecargaLivre, setValorRecargaLivre] = useState("");
+  const [usandoValorLivre, setUsandoValorLivre] = useState(false);
+  const [processandoRecarga, setProcessandoRecarga] = useState(false);
+  const [mensagemRecarga, setMensagemRecarga] = useState<string | null>(null);
+  const [avisoRecarga, setAvisoRecarga] = useState<{
+    tipo: "aviso" | "sucesso" | "erro";
+    texto: string;
+  } | null>(null);
   const [resultadoNfc, setResultadoNfc] = useState<{
     tipo: "sucesso" | "erro";
     texto: string;
@@ -321,6 +353,99 @@ export default function CartoesScreen() {
     }
   }
 
+  function abrirRecarga(cartao: Cartao) {
+    setCartaoRecarga(cartao);
+    setValorRecargaCentavos(1000);
+    setValorRecargaLivre("");
+    setUsandoValorLivre(false);
+    setMensagemRecarga(null);
+  }
+
+  function valorRecargaInformado(): number | null {
+    if (usandoValorLivre) {
+      return centavosDoTexto(valorRecargaLivre);
+    }
+    return valorRecargaCentavos;
+  }
+
+  function aplicarSaldoRecarga(cartaoId: number, saldo: number) {
+    setCartoes((lista) =>
+      lista.map((c) => (c.id === cartaoId ? { ...c, saldo } : c))
+    );
+  }
+
+  async function acompanharRecarga(recargaId: number) {
+    for (let tentativa = 0; tentativa < 20; tentativa += 1) {
+      await esperar(3000);
+      try {
+        const consulta = await api.get(`/recargas/${recargaId}`);
+        const corpo = await consulta.json().catch(() => null);
+        if (!consulta.ok) {
+          return;
+        }
+        if (corpo?.status === "PAGA" && corpo.cartao) {
+          aplicarSaldoRecarga(corpo.cartao.id, corpo.cartao.saldo);
+          setAvisoRecarga({
+            tipo: "sucesso",
+            texto: "Recarga confirmada. O saldo do cartão foi atualizado.",
+          });
+          return;
+        }
+        if (corpo?.status === "FALHOU") {
+          setAvisoRecarga({
+            tipo: "erro",
+            texto: "O pagamento não foi concluído. Nenhum valor foi creditado.",
+          });
+          return;
+        }
+      } catch {
+        return;
+      }
+    }
+  }
+
+  async function confirmarRecarga() {
+    if (!cartaoRecarga || processandoRecarga) return;
+
+    const valorCentavos = valorRecargaInformado();
+    if (valorCentavos === null) {
+      setMensagemRecarga("Informe um valor entre R$ 5,00 e R$ 200,00.");
+      return;
+    }
+
+    if (!API_URL) {
+      setMensagemRecarga("API não configurada; não foi possível iniciar a recarga.");
+      return;
+    }
+
+    setProcessandoRecarga(true);
+    setMensagemRecarga(null);
+
+    try {
+      const resposta = await api.post(`/cartoes/${cartaoRecarga.id}/recargas`, {
+        valorCentavos,
+      });
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok || typeof dados?.url !== "string" || typeof dados?.id !== "number") {
+        throw new Error(dados?.erro ?? `A API respondeu HTTP ${resposta.status}.`);
+      }
+
+      setCartaoRecarga(null);
+      setAvisoRecarga({
+        tipo: "aviso",
+        texto: "Recarga solicitada. O saldo será atualizado em instantes.",
+      });
+      void WebBrowser.openBrowserAsync(dados.url);
+      void acompanharRecarga(dados.id);
+    } catch (e) {
+      setMensagemRecarga(
+        e instanceof Error ? e.message : "Não foi possível iniciar a recarga.",
+      );
+    } finally {
+      setProcessandoRecarga(false);
+    }
+  }
+
   function abrirModalNfc(cartao: Cartao) {
     setNfcAtivo(true);
     setCartaoNfcId(cartao.id);
@@ -540,6 +665,20 @@ export default function CartoesScreen() {
 
         {erro && <Text style={styles.erroTexto}>{erro}</Text>}
 
+        {avisoRecarga && (
+          <Text
+            style={
+              avisoRecarga.tipo === "sucesso"
+                ? styles.sucessoTexto
+                : avisoRecarga.tipo === "erro"
+                  ? styles.erroTexto
+                  : styles.avisoRecargaTexto
+            }
+          >
+            {avisoRecarga.texto}
+          </Text>
+        )}
+
         {cartoes.length === 0 && !carregando && (
           <View style={styles.emptyCard}>
             <MaterialCommunityIcons
@@ -614,6 +753,13 @@ export default function CartoesScreen() {
                   onPress={() => consultarSaldoCartao(cartao)}
                 >
                   <Text style={styles.chipButtonText}>Consultar Saldo</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.chipButton}
+                  onPress={() => abrirRecarga(cartao)}
+                >
+                  <Text style={styles.chipButtonText}>Recarregar</Text>
                 </Pressable>
 
                 <Pressable
@@ -695,6 +841,96 @@ export default function CartoesScreen() {
             >
               <MaterialCommunityIcons name="check" size={20} color="#FFFFFF" />
               <Text style={styles.primaryPillButtonText}>Fechar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={cartaoRecarga !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!processandoRecarga) setCartaoRecarga(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitulo}>Recarregar cartão</Text>
+            <Text style={styles.modalSubtitulo}>
+              {cartaoRecarga?.nome} •{" "}
+              {cartaoRecarga ? formatarNumeroMascarado(cartaoRecarga.numeroTccc) : ""}
+            </Text>
+
+            <View style={styles.recargaValores}>
+              {VALORES_RECARGA.map((opcao) => {
+                const selecionado =
+                  !usandoValorLivre && valorRecargaCentavos === opcao.centavos;
+                return (
+                  <Pressable
+                    key={opcao.centavos}
+                    style={[styles.chipButton, selecionado && styles.chipButtonAtivo]}
+                    onPress={() => {
+                      setUsandoValorLivre(false);
+                      setValorRecargaLivre("");
+                      setValorRecargaCentavos(opcao.centavos);
+                      setMensagemRecarga(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.chipButtonText,
+                        selecionado && styles.chipButtonTextAtivo,
+                      ]}
+                    >
+                      {opcao.rotulo}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Outro valor (R$ 5,00 a R$ 200,00)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="15,00"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="decimal-pad"
+                value={valorRecargaLivre}
+                onChangeText={(texto) => {
+                  setValorRecargaLivre(texto);
+                  setUsandoValorLivre(texto.trim().length > 0);
+                  setMensagemRecarga(null);
+                }}
+              />
+            </View>
+
+            {mensagemRecarga && (
+              <Text style={styles.erroTexto}>{mensagemRecarga}</Text>
+            )}
+
+            <Pressable
+              style={[
+                styles.primaryPillButton,
+                processandoRecarga && { opacity: 0.55 },
+              ]}
+              onPress={confirmarRecarga}
+              disabled={processandoRecarga}
+            >
+              {processandoRecarga ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryPillButtonText}>Continuar para o pagamento</Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={styles.secondaryPillButton}
+              onPress={() => setCartaoRecarga(null)}
+              disabled={processandoRecarga}
+            >
+              <Text style={styles.secondaryPillButtonText}>Fechar</Text>
             </Pressable>
           </View>
         </View>

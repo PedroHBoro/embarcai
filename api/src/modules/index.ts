@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express, { Router } from "express";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { healthRoutes } from "./health/health.routes";
 import { linhasRoutes } from "./linhas/linhas.routes";
@@ -8,10 +8,13 @@ import { authRoutes } from "./auth/auth.routes";
 import { instituicoesEnsinoRoutes } from "./instituicoes-ensino/instituicoes-ensino.routes";
 import { viagensRoutes } from "./viagens/viagens.routes";
 import { usuariosRoutes } from "./usuarios/usuarios.routes";
+import { recargasRetornoRoutes, recargasRoutes } from "./recargas/recargas.routes";
+import { webhookRoutes } from "./webhooks/stripe.routes";
 
 const publicas = Router();
 publicas.use("/health", healthRoutes);
 publicas.use("/auth", authRoutes);
+publicas.use("/recargas", recargasRetornoRoutes);
 
 const autenticadas = Router();
 autenticadas.use(authMiddleware);
@@ -21,7 +24,10 @@ autenticadas.use("/cartoes", cartoesRoutes);
 autenticadas.use("/instituicoes-ensino", instituicoesEnsinoRoutes);
 autenticadas.use("/viagens", viagensRoutes);
 autenticadas.use("/usuarios", usuariosRoutes);
+autenticadas.use("/recargas", recargasRoutes);
 
 export const routes = Router();
+routes.use("/webhooks", webhookRoutes);
+routes.use(express.json());
 routes.use(publicas);
 routes.use(autenticadas);
