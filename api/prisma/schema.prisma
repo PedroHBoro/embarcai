@@ -78,6 +78,7 @@ model Usuario {
   senha    String   @db.Char(60)
   cartoes  Cartao[]
   viagens  Viagem[]
+  recargas Recarga[]
 }
 
 enum TipoPasse {
@@ -103,6 +104,27 @@ model Cartao {
   instituicaoEnsino     InstituicaoEnsino?    @relation(fields: [idInstituicaoEnsino], references: [id])
   comprovanteResidencia String?
   viagens               Viagem[]
+  recargas              Recarga[]
+}
+
+enum StatusRecarga {
+  PENDENTE
+  PAGA
+  FALHOU
+}
+
+model Recarga {
+  id              Int           @id @default(autoincrement())
+  valorCentavos   Int
+  status          StatusRecarga @default(PENDENTE)
+  stripeSessionId String?       @unique
+  criadoEm        DateTime      @default(now())
+  cartaoId        Int
+  cartao          Cartao        @relation(fields: [cartaoId], references: [id], onDelete: Restrict)
+  perfilId        Int
+  perfil          Usuario       @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+
+  @@index([perfilId, criadoEm])
 }
 
 model Viagem {
