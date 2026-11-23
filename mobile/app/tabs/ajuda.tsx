@@ -171,8 +171,6 @@ export default function AjudaScreen() {
           />
           <Text style={styles.emptyTitle}>Atendimento ao Passageiro</Text>
           <Text style={styles.avisoTexto}>
-            Terminal Intermodal Urbano de Maringá{"\n"}
-            Seg a Sex: 07h30 às 18h00 • Sáb: 08h00 às 12h00{"\n"}
             Projeto Embarcaí — Construção de Software (UEM)
           </Text>
         </View>
