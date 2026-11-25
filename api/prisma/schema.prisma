@@ -19,7 +19,7 @@ model InstituicaoEnsino {
   id          Int       @id @default(autoincrement())
   nome        String
   municipioId Int
-  municipio   Municipio @relation(fields: [municipioId], references: [id])
+  municipio   Municipio @relation(fields: [municipioId], references: [id], onDelete: Cascade)
   cartoes     Cartao[]
 }
 
@@ -35,7 +35,7 @@ model Rota {
   id          Int          @id @default(autoincrement())
   nome        String
   linhaId     Int
-  linha       Linha        @relation(fields: [linhaId], references: [id])
+  linha       Linha        @relation(fields: [linhaId], references: [id], onDelete: Cascade)
   itinerarios Itinerario[]
 }
 
@@ -120,7 +120,7 @@ model Recarga {
   stripeSessionId String?       @unique
   criadoEm        DateTime      @default(now())
   cartaoId        Int
-  cartao          Cartao        @relation(fields: [cartaoId], references: [id], onDelete: Restrict)
+  cartao          Cartao        @relation(fields: [cartaoId], references: [id], onDelete: Cascade)
   perfilId        Int
   perfil          Usuario       @relation(fields: [perfilId], references: [id], onDelete: Cascade)
 
@@ -135,9 +135,9 @@ model Viagem {
   perfilId     Int
   perfil       Usuario                @relation(fields: [perfilId], references: [id], onDelete: Cascade)
   cartaoId     Int
-  cartao       Cartao                 @relation(fields: [cartaoId], references: [id], onDelete: Restrict)
+  cartao       Cartao                 @relation(fields: [cartaoId], references: [id], onDelete: Cascade)
   pontoRotaId  Int
-  pontoRota    Itinerario             @relation(fields: [pontoRotaId], references: [id], onDelete: Restrict)
+  pontoRota    Itinerario             @relation(fields: [pontoRotaId], references: [id], onDelete: Cascade)
 
   @@index([perfilId, criadoEm])
 }
